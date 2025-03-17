@@ -12,8 +12,8 @@ User-friendly **Streamlit UI**
 ## **Setup Instructions**
 **Clone the Repository**
 ```bash
-git clone https://github.com/Lahari-Mullaguru/Portfolio.git
-cd Portfolio/NewsSummarization
+git clone https://github.com/Lahari-Mullaguru/DataScience.git
+cd Portfolio/NewsSummary
 
 ** Install Dependencies**
 pip install -r requirements.txt
