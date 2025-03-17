@@ -13,7 +13,7 @@ User-friendly **Streamlit UI**
 **Clone the Repository**
 ```bash
 git clone https://github.com/Lahari-Mullaguru/DataScience.git
-cd Portfolio/NewsSummary
+cd DataScience/NewsSummary
 
 ** Install Dependencies**
 pip install -r requirements.txt
