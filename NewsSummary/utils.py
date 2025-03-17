@@ -8,17 +8,18 @@ import os
 def fetch_news(company_name):
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
-    soup = BeautifulSoup(response.content, "xml")
+    soup = BeautifulSoup(response.content, "lxml-xml")
 
     articles = []
     for item in soup.find_all("item")[:10]:  # Fetch top 10 articles
         title = item.title.text
-        summary = item.description.text
+        raw_summary = item.description.text
+        summary = BeautifulSoup(raw_summary, "html.parser").get_text()  # Remove HTML tags
         url = item.link.text
 
         articles.append({
             "title": title,
-            "summary": summary,
+            "summary": summary,  # Cleaned text without HTML
             "url": url
         })
 
