@@ -7,30 +7,49 @@ import re
 import unicodedata
 from deep_translator import GoogleTranslator
 import nltk
+from newspaper import Article
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer
+from sumy.summarizers.text_rank import TextRankSummarizer
 
-# Download stopwords for better topic extraction
+# Ensure necessary NLTK data is available
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
 nltk.download("stopwords")
-nltk.download('punkt_tab')
 from nltk.corpus import stopwords
 
 STOPWORDS = set(stopwords.words("english"))
 
-
+# Function to clean text and remove unwanted Unicode characters
 def clean_text(text):
-    """ Normalize text to remove unwanted Unicode characters """
-    return unicodedata.normalize("NFKD", text).strip().replace("\n", " ").replace("\r", " ")
+    """ Normalize text, remove unwanted Unicode artifacts, and clean formatting """
+    text = unicodedata.normalize("NFKD", text).strip()
+    text = text.encode('utf-8').decode('unicode_escape')  # Remove Unicode artifacts
+    text = text.replace("\n", " ").replace("\r", " ")  # Remove newlines
+    return text
 
-def extract_summary(text):
-    """ Uses extractive summarization to generate key sentence summaries """
+# Extract title using newspaper3k (best for news articles)
+def extract_title(url):
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        return article.title
+    except:
+        return "Title Unavailable"
+
+# Extract summary using TextRank (better extractive summarization)
+def extract_summary(text, num_sentences=3):
     parser = PlaintextParser.from_string(text, Tokenizer("english"))
-    summarizer = LsaSummarizer()
-    summary_sentences = summarizer(parser.document, 2)  # Extract top 2 sentences
+    summarizer = TextRankSummarizer()
+    summary_sentences = summarizer(parser.document, num_sentences)
     summary = " ".join(str(sentence) for sentence in summary_sentences)
     return summary if summary else text  # Ensure a valid summary is returned
 
+# Fetch news articles with improved title and summary extraction
 def fetch_news(company_name):
     """ Fetches news articles and generates AI-powered summaries """
     search_url = f"https://news.google.com/rss/search?q={company_name}"
@@ -39,11 +58,12 @@ def fetch_news(company_name):
 
     articles = []
     for item in soup.find_all("item")[:10]:  
-        title = clean_text(item.title.text)
+        url = item.link.text.strip()
+        title = extract_title(url)  
         raw_summary = item.description.text
         full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
 
-        summary = extract_summary(full_text)  # AI-powered summary extraction
+        summary = extract_summary(full_text, 3)  
 
         articles.append({
             "Title": title,
@@ -51,9 +71,6 @@ def fetch_news(company_name):
         })
 
     return articles
-
-
-
 
 # Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
