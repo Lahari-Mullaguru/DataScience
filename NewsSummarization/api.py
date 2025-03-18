@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory
-from utils import fetch_news,analyze_sentiment,text_to_speech,compare_sentiments,generate_comparative_analysis
+from utils import fetch_news, analyze_sentiment, text_to_speech
+
 import os
 
 app = Flask(__name__)
@@ -23,20 +24,22 @@ def fetch_news_api():
     if not articles:
         return jsonify({"message": f"No articles found for {company}", "articles": []}), 200
 
-    sentiment_data, processed_articles = compare_sentiments(articles)
-    comparative_analysis = generate_comparative_analysis(processed_articles)
+    sentiment_data = {"Positive": 0, "Negative": 0, "Neutral": 0}
+    processed_articles = []
 
-    # Generate Hindi TTS audio from the first two article summaries
+    for article in articles:
+        sentiment = analyze_sentiment(article["Summary"])
+        sentiment_data[sentiment] += 1
+        article["Sentiment"] = sentiment
+        processed_articles.append(article)
+
     summary_text = " ".join([article["Summary"] for article in processed_articles[:2]])  
     audio_link = text_to_speech(summary_text, company)
 
     response = {
         "Company": company,
         "Articles": processed_articles,
-        "Comparative Sentiment Score": {
-            "Sentiment Distribution": sentiment_data,
-            **comparative_analysis
-        },
+        "Sentiment Distribution": sentiment_data,
         "Final Sentiment Analysis": f"{company}’s latest news coverage is mostly {max(sentiment_data, key=sentiment_data.get)}. Potential stock growth expected.",
         "Audio": audio_link
     }
