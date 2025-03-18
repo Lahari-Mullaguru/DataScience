@@ -4,8 +4,20 @@ from textblob import TextBlob
 from gtts import gTTS
 import os
 import re
+import unicodedata
+import nltk
 
-# Function to extract news articles dynamically for any company
+# Download stopwords for better topic extraction
+nltk.download("stopwords")
+from nltk.corpus import stopwords
+
+STOPWORDS = set(stopwords.words("english"))
+
+# Function to clean text and remove unwanted Unicode characters
+def clean_text(text):
+    return unicodedata.normalize("NFKD", text).strip()
+
+# Function to fetch news articles for any company dynamically
 def fetch_news(company_name):
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
@@ -13,9 +25,9 @@ def fetch_news(company_name):
 
     articles = []
     for item in soup.find_all("item")[:10]:  # Fetch top 10 articles
-        title = item.title.text.strip()
+        title = clean_text(item.title.text)
         raw_summary = item.description.text
-        summary = BeautifulSoup(raw_summary, "html.parser").get_text().strip()  # Remove HTML tags
+        summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
         url = item.link.text.strip()
 
         articles.append({
@@ -25,18 +37,19 @@ def fetch_news(company_name):
 
     return articles
 
-# Function for sentiment analysis (dynamic for any text)
+# Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
     return "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
 
-# Function to extract meaningful topics (Dynamic)
+# Function to extract meaningful topics from article summaries
 def extract_topics(summary):
-    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words with length >= 4
-    return list(set(words))[:3]  # Return top 3 keywords
+    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words of 4+ letters
+    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS]  # Remove stopwords
+    return list(set(keywords))[:3]  # Return top 3 meaningful keywords
 
-# Function to compare sentiments dynamically for any company
+# Function to compare sentiments across multiple articles
 def compare_sentiments(articles):
     sentiment_count = {"Positive": 0, "Negative": 0, "Neutral": 0}
 
@@ -50,10 +63,10 @@ def compare_sentiments(articles):
     return sentiment_count, articles
 
 # Function to generate coverage differences dynamically
-def generate_coverage_comparison(articles):
+def generate_coverage_comparison(articles, company_name):
     coverage_differences = []
     topic_overlap = {
-        "Common Topics": [],
+        "Common Topics": [company_name],  # Ensure company name is always included
         "Unique Topics in Article 1": [],
         "Unique Topics in Article 2": []
     }
@@ -67,31 +80,41 @@ def generate_coverage_comparison(articles):
     topics1 = article1["topics"]
     topics2 = article2["topics"]
 
-    topic_overlap["Common Topics"] = list(set(topics1) & set(topics2))
+    common_topics = list(set(topics1) & set(topics2))
+    if not common_topics:
+        common_topics.append("General Business News")  # Ensure it's not empty
+
+    topic_overlap["Common Topics"].extend(common_topics)
     topic_overlap["Unique Topics in Article 1"] = list(set(topics1) - set(topics2))
     topic_overlap["Unique Topics in Article 2"] = list(set(topics2) - set(topics1))
 
     coverage_differences.append({
-        "Comparison": f"Article 1 highlights {article1['title']}, while Article 2 discusses {article2['title']}.",
-        "Impact": f"The first article emphasizes {topics1}, while the second article focuses on {topics2}."
+        "Comparison": f"Article 1: {article1['title']} vs. Article 2: {article2['title']}.",
+        "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
     })
 
     return coverage_differences, topic_overlap
 
-# Function to generate final sentiment statement dynamically
+# Function to generate final sentiment analysis statement
 def generate_final_sentiment(sentiment_data, company_name):
+    total_articles = sum(sentiment_data.values())
+
     if sentiment_data["Positive"] > sentiment_data["Negative"]:
         return f"{company_name}’s latest news coverage is mostly positive. Potential stock growth expected."
     elif sentiment_data["Negative"] > sentiment_data["Positive"]:
-        return f"The latest news coverage about {company_name} is mostly negative. Potential risks identified."
+        return f"The latest news coverage about {company_name} is mostly negative. {round((sentiment_data['Negative'] / total_articles) * 100, 1)}% of articles indicate potential risks."
     else:
         return f"The news coverage for {company_name} is balanced with mixed reactions."
 
-# Function to convert text to speech dynamically
+# Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
-    tts = gTTS(text, lang="hi")
+
+    # Force Hindi pronunciation
+    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  # "This is translated news in Hindi."
+    full_text = hindi_intro + " " + text  
+
+    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  # Force Hindi voice
     tts.save(audio_filename)
 
-    # Return the direct link to the generated audio file
-    return f"http://127.0.0.1:5000/{audio_filename}"
+    return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
