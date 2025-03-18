@@ -32,14 +32,15 @@ def clean_text(text):
     return text
 
 # Extract title using newspaper3k (fallback to RSS title)
-def extract_title(url, rss_title):
+# Extract title using newspaper3k (best for news articles)
+def extract_title(url):
     try:
         article = Article(url)
         article.download()
         article.parse()
-        return article.title if article.title else rss_title
+        return article.title
     except:
-        return rss_title  # Use title from RSS if extraction fails
+        return "Title Unavailable"
 
 # Extract summary using TextRank (better extractive summarization)
 def extract_summary(text, num_sentences=3):
