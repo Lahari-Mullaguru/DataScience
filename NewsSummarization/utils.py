@@ -82,8 +82,7 @@ def fetch_news(company_name):
 
         articles.append({
             "Title": title,
-            "Summary": summary,
-            "URL": url
+            "Summary": summary
         })
 
     return articles
