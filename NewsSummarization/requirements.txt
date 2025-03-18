@@ -8,3 +8,4 @@ deep-translator
 sumy
 newspaper3k  
 nltk
+lxml_html_clean
