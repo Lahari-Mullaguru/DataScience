@@ -3,8 +3,9 @@ from bs4 import BeautifulSoup
 from textblob import TextBlob
 from gtts import gTTS
 import os
+import re
 
-# Function to extract news articles
+# Function to extract news articles dynamically for any company
 def fetch_news(company_name):
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
@@ -12,31 +13,30 @@ def fetch_news(company_name):
 
     articles = []
     for item in soup.find_all("item")[:10]:  # Fetch top 10 articles
-        title = item.title.text
+        title = item.title.text.strip()
         raw_summary = item.description.text
-        summary = BeautifulSoup(raw_summary, "html.parser").get_text()  # Remove HTML tags
-        url = item.link.text
+        summary = BeautifulSoup(raw_summary, "html.parser").get_text().strip()  # Remove HTML tags
+        url = item.link.text.strip()
 
         articles.append({
             "title": title,
-            "summary": summary.strip(),  # Remove extra spaces
+            "summary": summary
         })
 
     return articles
 
-# Function for sentiment analysis
+# Function for sentiment analysis (dynamic for any text)
 def analyze_sentiment(text):
     analysis = TextBlob(text)
     polarity = analysis.sentiment.polarity
     return "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
 
-# Function to extract topics from text
+# Function to extract meaningful topics (Dynamic)
 def extract_topics(summary):
-    words = summary.split()  
-    keywords = [word for word in words if len(word) > 3]  
-    return list(set(keywords))[:5]  
+    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words with length >= 4
+    return list(set(words))[:3]  # Return top 3 keywords
 
-# Function to compare sentiments
+# Function to compare sentiments dynamically for any company
 def compare_sentiments(articles):
     sentiment_count = {"Positive": 0, "Negative": 0, "Neutral": 0}
 
@@ -49,7 +49,7 @@ def compare_sentiments(articles):
 
     return sentiment_count, articles
 
-# Function to generate coverage differences
+# Function to generate coverage differences dynamically
 def generate_coverage_comparison(articles):
     coverage_differences = []
     topic_overlap = {
@@ -78,18 +78,20 @@ def generate_coverage_comparison(articles):
 
     return coverage_differences, topic_overlap
 
-# Function to generate final sentiment statement
-def generate_final_sentiment(sentiment_data):
+# Function to generate final sentiment statement dynamically
+def generate_final_sentiment(sentiment_data, company_name):
     if sentiment_data["Positive"] > sentiment_data["Negative"]:
-        return "The latest news coverage is mostly positive. Potential stock growth expected."
+        return f"{company_name}’s latest news coverage is mostly positive. Potential stock growth expected."
     elif sentiment_data["Negative"] > sentiment_data["Positive"]:
-        return "The latest news coverage is mostly negative. Potential risks identified."
+        return f"The latest news coverage about {company_name} is mostly negative. Potential risks identified."
     else:
-        return "The news coverage is balanced with mixed reactions."
+        return f"The news coverage for {company_name} is balanced with mixed reactions."
 
-# Function to convert text to speech
-def text_to_speech(text):
+# Function to convert text to speech dynamically
+def text_to_speech(text, company_name):
+    audio_filename = f"static/{company_name}_summary_audio.mp3"
     tts = gTTS(text, lang="hi")
-    file_path = "static/output.mp3"
-    tts.save(file_path)
-    return file_path
+    tts.save(audio_filename)
+
+    # Return the direct link to the generated audio file
+    return f"http://127.0.0.1:5000/{audio_filename}"
