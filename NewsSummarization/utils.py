@@ -7,8 +7,17 @@ import re
 import unicodedata
 from deep_translator import GoogleTranslator
 import nltk
+from newspaper import Article
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.text_rank import TextRankSummarizer
 
-# Download stopwords for better topic extraction
+# Ensure necessary NLTK data is available
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
 nltk.download("stopwords")
 from nltk.corpus import stopwords
 
@@ -16,27 +25,55 @@ STOPWORDS = set(stopwords.words("english"))
 
 # Function to clean text and remove unwanted Unicode characters
 def clean_text(text):
+    """ Normalize text, remove unwanted Unicode artifacts, and clean formatting """
     text = unicodedata.normalize("NFKD", text).strip()
-    return text.replace("\n", " ").replace("\r", " ")  # Remove newlines
+    text = text.encode('utf-8', 'ignore').decode('unicode_escape')  # Remove Unicode artifacts
+    text = text.replace("\n", " ").replace("\r", " ")  # Remove newlines
+    text = re.sub(r'[^\x00-\x7F]+', '', text)  # Remove non-ASCII characters
+    return text
 
-# Function to fetch news articles for any company dynamically
+# Extract title using newspaper3k
+def extract_title(url):
+    """ Extracts the real title from the article URL using newspaper3k """
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        if article.title and len(article.title) > 5:
+            return clean_text(article.title)
+    except:
+        pass
+    return "Title Unavailable"
+
+# Extract summary using TextRank
+def extract_summary(text, num_sentences=3):
+    """ Uses TextRank summarization to generate key sentence summaries """
+    text = clean_text(text)
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = TextRankSummarizer()
+    summary_sentences = summarizer(parser.document, num_sentences)
+    summary = " ".join(str(sentence) for sentence in summary_sentences)
+    return summary if summary.strip() else text
+
+# Fetch news articles with proper title and summary extraction
 def fetch_news(company_name):
+    """ Fetches news articles and generates AI-powered summaries """
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
     soup = BeautifulSoup(response.content, "lxml-xml")
 
     articles = []
     for item in soup.find_all("item")[:10]:  
-        title = clean_text(item.title.text)
+        url = item.link.text.strip()
+        title = extract_title(url)
         raw_summary = item.description.text
-        summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-
-        if summary == title:  # Ensure summary isn't the same as title
-            summary = f"{title} - More details inside."  
+        full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
+        summary = extract_summary(full_text, 3)
 
         articles.append({
             "Title": title,
-            "Summary": summary
+            "Summary": summary,
+            "URL": url
         })
 
     return articles
@@ -67,60 +104,14 @@ def compare_sentiments(articles):
 
     return sentiment_count, articles
 
-# Function to generate coverage differences dynamically
-def generate_coverage_comparison(articles, company_name):
-    coverage_differences = []
-    topic_overlap = {
-        "Common Topics": [company_name],  # Ensure company name is always included
-        "Unique Topics in Article 1": [],
-        "Unique Topics in Article 2": []
-    }
-
-    if len(articles) < 2:
-        return coverage_differences, topic_overlap
-
-    article1 = articles[0]
-    article2 = articles[1]
-
-    topics1 = article1["Topics"]
-    topics2 = article2["Topics"]
-
-    common_topics = list(set(topics1) & set(topics2))
-    if not common_topics:
-        common_topics.append("General Business News")  # Ensure at least one common topic
-
-    topic_overlap["Common Topics"].extend(common_topics)
-    topic_overlap["Unique Topics in Article 1"] = list(set(topics1) - set(topics2))
-    topic_overlap["Unique Topics in Article 2"] = list(set(topics2) - set(topics1))
-
-    coverage_differences.append({
-        "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
-        "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
-    })
-
-    return coverage_differences, topic_overlap
-
-# Function to generate final sentiment analysis statement
-def generate_final_sentiment(sentiment_data, company_name):
-    total_articles = sum(sentiment_data.values())
-
-    if sentiment_data["Positive"] > sentiment_data["Negative"]:
-        return f"{company_name}’s latest news coverage is mostly positive. Potential stock growth expected."
-    elif sentiment_data["Negative"] > sentiment_data["Positive"]:
-        return f"The latest news coverage about {company_name} is mostly negative. {round((sentiment_data['Negative'] / total_articles) * 100, 1)}% of articles indicate potential risks."
-    else:
-        return f"The news coverage for {company_name} is balanced with mixed reactions."
-
 # Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
+    """ Converts news summary into Hindi text-to-speech audio """
     audio_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # Ensure summary is translated into Hindi
-    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)  # Hindi translation
     
-    full_text =translated_text  
-
-    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
+    tts = gTTS(translated_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
 
     return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
