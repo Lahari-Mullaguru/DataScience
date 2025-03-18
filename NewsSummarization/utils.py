@@ -5,47 +5,34 @@ from gtts import gTTS
 import os
 import re
 import unicodedata
-import nltk
-from newspaper import Article
 from deep_translator import GoogleTranslator
-from rake_nltk import Rake
-from nltk.sentiment import SentimentIntensityAnalyzer
-from sumy.parsers.plaintext import PlaintextParser
-from sumy.nlp.tokenizers import Tokenizer
-from sumy.summarizers.lsa import LsaSummarizer
+import nltk
 
-nltk.download("vader_lexicon")
+# Download stopwords for better topic extraction
 nltk.download("stopwords")
-nltk.download("punkt")
+from nltk.corpus import stopwords
 
-sia = SentimentIntensityAnalyzer()
-STOPWORDS = set(nltk.corpus.stopwords.words("english"))
+STOPWORDS = set(stopwords.words("english"))
 
-# Function to clean text
+# Function to clean text and remove unwanted Unicode characters
 def clean_text(text):
     text = unicodedata.normalize("NFKD", text).strip()
-    return text.replace("\n", " ").replace("\r", " ")
+    return text.replace("\n", " ").replace("\r", " ")  # Remove newlines
 
-# Fetch news from Google News RSS
+# Function to fetch news articles for any company dynamically
 def fetch_news(company_name):
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
     soup = BeautifulSoup(response.content, "lxml-xml")
 
     articles = []
-    for item in soup.find_all("item")[:10]:
+    for item in soup.find_all("item")[:10]:  
         title = clean_text(item.title.text)
-        url = item.link.text
+        raw_summary = item.description.text
+        summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
 
-        # Extract actual article summary
-        article = Article(url)
-        try:
-            article.download()
-            article.parse()
-            article.nlp()
-            summary = clean_text(article.summary)
-        except:
-            summary = "Summary not available. Click link for details."
+        if summary == title:  # Ensure summary isn't the same as title
+            summary = f"{title} - More details inside."  
 
         articles.append({
             "Title": title,
@@ -54,23 +41,19 @@ def fetch_news(company_name):
 
     return articles
 
-# Sentiment analysis using VADER
+# Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
-    scores = sia.polarity_scores(text)
-    if scores["compound"] > 0.05:
-        return "Positive"
-    elif scores["compound"] < -0.05:
-        return "Negative"
-    else:
-        return "Neutral"
+    analysis = TextBlob(text)
+    polarity = analysis.sentiment.polarity
+    return "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
 
-# Extract topics using RAKE
+# Function to extract meaningful topics from article summaries
 def extract_topics(summary):
-    rake = Rake()
-    rake.extract_keywords_from_text(summary)
-    return rake.get_ranked_phrases()[:3]  # Return top 3 ranked keywords
+    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words of 4+ letters
+    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS]  # Remove stopwords
+    return list(set(keywords))[:3]  # Return top 3 meaningful keywords
 
-# Compare sentiments across articles
+# Function to compare sentiments across multiple articles
 def compare_sentiments(articles):
     sentiment_count = {"Positive": 0, "Negative": 0, "Neutral": 0}
 
@@ -79,32 +62,48 @@ def compare_sentiments(articles):
         topics = extract_topics(article["Summary"])
         article["Sentiment"] = sentiment
         article["Topics"] = topics
+
         sentiment_count[sentiment] += 1
 
     return sentiment_count, articles
 
-# Compare topic coverage
+# Function to generate coverage differences dynamically
 def generate_coverage_comparison(articles, company_name):
-    if len(articles) < 2:
-        return [], {"Common Topics": [company_name], "Unique Topics in Article 1": [], "Unique Topics in Article 2": []}
-
-    article1, article2 = articles[:2]
-    topics1, topics2 = set(article1["Topics"]), set(article2["Topics"])
-
-    return [
-        {
-            "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
-            "Impact": f"Article 1 discusses {', '.join(topics1)}, while Article 2 focuses on {', '.join(topics2)}."
-        }
-    ], {
-        "Common Topics": list(topics1 & topics2) or ["General Business News"],
-        "Unique Topics in Article 1": list(topics1 - topics2),
-        "Unique Topics in Article 2": list(topics2 - topics1)
+    coverage_differences = []
+    topic_overlap = {
+        "Common Topics": [company_name],  # Ensure company name is always included
+        "Unique Topics in Article 1": [],
+        "Unique Topics in Article 2": []
     }
 
-# Generate final sentiment statement
+    if len(articles) < 2:
+        return coverage_differences, topic_overlap
+
+    article1 = articles[0]
+    article2 = articles[1]
+
+    topics1 = article1["Topics"]
+    topics2 = article2["Topics"]
+
+    common_topics = list(set(topics1) & set(topics2))
+    if not common_topics:
+        common_topics.append("General Business News")  # Ensure at least one common topic
+
+    topic_overlap["Common Topics"].extend(common_topics)
+    topic_overlap["Unique Topics in Article 1"] = list(set(topics1) - set(topics2))
+    topic_overlap["Unique Topics in Article 2"] = list(set(topics2) - set(topics1))
+
+    coverage_differences.append({
+        "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
+        "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
+    })
+
+    return coverage_differences, topic_overlap
+
+# Function to generate final sentiment analysis statement
 def generate_final_sentiment(sentiment_data, company_name):
     total_articles = sum(sentiment_data.values())
+
     if sentiment_data["Positive"] > sentiment_data["Negative"]:
         return f"{company_name}’s latest news coverage is mostly positive. Potential stock growth expected."
     elif sentiment_data["Negative"] > sentiment_data["Positive"]:
@@ -112,17 +111,16 @@ def generate_final_sentiment(sentiment_data, company_name):
     else:
         return f"The news coverage for {company_name} is balanced with mixed reactions."
 
-# Summarize text using Sumy
-def summarize_text(text, sentence_count=3):
-    parser = PlaintextParser.from_string(text, Tokenizer("english"))
-    summarizer = LsaSummarizer()
-    summary = summarizer(parser.document, sentence_count)
-    return " ".join(str(sentence) for sentence in summary)
-
-# Generate Hindi text-to-speech
+# Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
+
+    # Ensure summary is translated into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
-    tts = gTTS(translated_text, lang="hi", slow=False, tld="co.in")
+    
+    full_text =translated_text  
+
+    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
+
     return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
