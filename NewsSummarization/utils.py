@@ -35,6 +35,12 @@ def fetch_article_content(url):
     content = " ".join([p.text for p in paragraphs])
     return content
 
+def summarize_article(content, max_length=100):
+    """
+    Generate a summary of the article content.
+    """
+    return content[:max_length] + "..." if len(content) > max_length else content
+
 def analyze_sentiment(content):
     """
     Perform sentiment analysis on the article content.
