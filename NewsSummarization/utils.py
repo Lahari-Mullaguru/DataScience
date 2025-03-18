@@ -9,6 +9,7 @@ from deep_translator import GoogleTranslator
 import nltk
 from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
+from transformers import pipeline  # Import the summarization pipeline
 
 # Download NLTK data for sentence tokenization and stopwords
 nltk.download("punkt")
@@ -17,11 +18,19 @@ nltk.download("stopwords")
 # Define STOPWORDS
 STOPWORDS = set(stopwords.words("english"))
 
+# Initialize the summarization pipeline
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+
 # Function to clean text and remove unwanted characters
 def clean_text(text):
     """
-    Clean and normalize text by removing unwanted characters and formatting.
+    Clean and normalize text by removing unwanted characters, HTML tags, and formatting.
     """
+    # Remove HTML tags using BeautifulSoup
+    soup = BeautifulSoup(text, "html.parser")
+    text = soup.get_text()
+
+    # Normalize and clean the text
     text = unicodedata.normalize("NFKD", text).strip()
     return text.replace("\n", " ").replace("\r", " ")
 
@@ -43,14 +52,18 @@ def fetch_article_content(url):
         print(f"Error fetching article content: {e}")
         return ""
 
-# Function to generate a summary of the article content
-def summarize_article(content, max_sentences=3):
+# Function to generate a high-quality summary of the article content
+def summarize_article(content, max_length=130, min_length=30):
     """
-    Generate a summary of the article content by extracting the first few sentences.
+    Generate a high-quality summary of the article content using a pre-trained model.
     """
-    sentences = sent_tokenize(content)
-    summary = " ".join(sentences[:max_sentences])
-    return summary
+    try:
+        # Summarize the content using the Hugging Face summarization model
+        summary = summarizer(content, max_length=max_length, min_length=min_length, do_sample=False)
+        return summary[0]['summary_text']
+    except Exception as e:
+        print(f"Error summarizing article: {e}")
+        return content[:200] + "..."  # Fallback to the first 200 characters if summarization fails
 
 # Function to fetch news articles related to a given company name
 def fetch_news(company_name):
@@ -69,7 +82,7 @@ def fetch_news(company_name):
         # Fetch full article content
         full_content = fetch_article_content(link)
 
-        # Generate a summary from the full content
+        # Generate a high-quality summary from the full content
         summary = summarize_article(full_content) if full_content else clean_text(item.description.text)
 
         articles.append({
@@ -94,8 +107,10 @@ def extract_topics(summary):
     """
     Extract meaningful topics from the article summary.
     """
+    # Filter out common stopwords and irrelevant words
+    irrelevant_words = {"news", "google", "https", "says", "color", "font"}
     words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words of 4+ letters
-    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS]  # Remove stopwords
+    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS and word.lower() not in irrelevant_words]
     return list(set(keywords))[:3]  # Return top 3 meaningful keywords
 
 # Function to compare sentiments across multiple articles
@@ -146,7 +161,7 @@ def generate_coverage_comparison(articles, company_name):
 
     coverage_differences.append({
         "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
-        "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
+        "Impact": f"The first article focuses on {', '.join(topics1)}, while the second article discusses {', '.join(topics2)}."
     })
 
     return coverage_differences, topic_overlap
@@ -159,11 +174,11 @@ def generate_final_sentiment(sentiment_data, company_name):
     total_articles = sum(sentiment_data.values())
 
     if sentiment_data["Positive"] > sentiment_data["Negative"]:
-        return f"{company_name}’s latest news coverage is mostly positive. Potential stock growth expected."
+        return f"{company_name}’s latest news coverage is mostly positive ({sentiment_data['Positive']}/{total_articles} articles). Potential stock growth expected."
     elif sentiment_data["Negative"] > sentiment_data["Positive"]:
-        return f"The latest news coverage about {company_name} is mostly negative. {round((sentiment_data['Negative'] / total_articles) * 100, 1)}% of articles indicate potential risks."
+        return f"The latest news coverage about {company_name} is mostly negative ({sentiment_data['Negative']}/{total_articles} articles). Investors should be cautious."
     else:
-        return f"The news coverage for {company_name} is balanced with mixed reactions."
+        return f"The news coverage for {company_name} is balanced with mixed reactions ({sentiment_data['Neutral']}/{total_articles} articles)."
 
 # Function to generate Hindi text-to-speech audio
 def text_to_speech(text, company_name):
