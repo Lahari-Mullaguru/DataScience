@@ -11,6 +11,7 @@ from newspaper import Article
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.text_rank import TextRankSummarizer
+from newspaper import Article
 
 # Ensure necessary NLTK data is available
 try:
@@ -27,23 +28,26 @@ STOPWORDS = set(stopwords.words("english"))
 def clean_text(text):
     """ Normalize text, remove unwanted Unicode artifacts, and clean formatting """
     text = unicodedata.normalize("NFKD", text).strip()
-    text = text.encode('utf-8').decode('unicode_escape')  # Remove Unicode artifacts
+    text = text.encode('utf-8', 'ignore').decode('unicode_escape')  # Remove Unicode artifacts
     text = text.replace("\n", " ").replace("\r", " ")  # Remove newlines
     return text
 
-# Extract title using newspaper3k (fallback to RSS title)
 # Extract title using newspaper3k (best for news articles)
 def extract_title(url):
+    """ Extracts the real title from the article URL using newspaper3k """
     try:
         article = Article(url)
         article.download()
         article.parse()
-        return article.title
+        return clean_text(article.title)  # Ensure the title is cleaned properly
     except:
         return "Title Unavailable"
 
 # Extract summary using TextRank (better extractive summarization)
+
 def extract_summary(text, num_sentences=3):
+    """ Uses TextRank summarization to generate key sentence summaries """
+    text = clean_text(text)  # Ensure text is cleaned before summarization
     parser = PlaintextParser.from_string(text, Tokenizer("english"))
     summarizer = TextRankSummarizer()
     summary_sentences = summarizer(parser.document, num_sentences)
@@ -60,18 +64,20 @@ def fetch_news(company_name):
     articles = []
     for item in soup.find_all("item")[:10]:  
         url = item.link.text.strip()
-        rss_title = item.title.text.strip()  # Use RSS title as fallback
-        title = extract_title(url, rss_title)  # Use newspaper3k if possible
+        title = extract_title(url)  # Use AI-powered title extraction
         raw_summary = item.description.text
         full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-        summary = extract_summary(full_text, 3)  
+
+        summary = extract_summary(full_text, 3)  # TextRank-based summary extraction
 
         articles.append({
             "Title": title,
-            "Summary": summary
+            "Summary": summary,
+            "URL": url
         })
 
     return articles
+
 
 # Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
@@ -145,10 +151,10 @@ def generate_final_sentiment(sentiment_data, company_name):
 
 # Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
+    """ Converts news summary into Hindi text-to-speech audio """
     audio_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # Ensure summary is translated into Hindi
-    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)  # Ensure correct Hindi translation
     
     hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
     full_text = hindi_intro + " " + translated_text  
