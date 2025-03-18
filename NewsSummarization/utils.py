@@ -7,6 +7,9 @@ import re
 import unicodedata
 from deep_translator import GoogleTranslator
 import nltk
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
 
 # Download stopwords for better topic extraction
 nltk.download("stopwords")
@@ -14,13 +17,21 @@ from nltk.corpus import stopwords
 
 STOPWORDS = set(stopwords.words("english"))
 
-# Function to clean text and remove unwanted Unicode characters
-def clean_text(text):
-    text = unicodedata.normalize("NFKD", text).strip()
-    return text.replace("\n", " ").replace("\r", " ")  # Remove newlines
 
-# Function to fetch news articles for any company dynamically
+def clean_text(text):
+    """ Normalize text to remove unwanted Unicode characters """
+    return unicodedata.normalize("NFKD", text).strip().replace("\n", " ").replace("\r", " ")
+
+def extract_summary(text):
+    """ Uses extractive summarization to generate key sentence summaries """
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    summary_sentences = summarizer(parser.document, 2)  # Extract top 2 sentences
+    summary = " ".join(str(sentence) for sentence in summary_sentences)
+    return summary if summary else text  # Ensure a valid summary is returned
+
 def fetch_news(company_name):
+    """ Fetches news articles and generates AI-powered summaries """
     search_url = f"https://news.google.com/rss/search?q={company_name}"
     response = requests.get(search_url)
     soup = BeautifulSoup(response.content, "lxml-xml")
@@ -29,10 +40,9 @@ def fetch_news(company_name):
     for item in soup.find_all("item")[:10]:  
         title = clean_text(item.title.text)
         raw_summary = item.description.text
-        summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
+        full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
 
-        if summary == title:  # Ensure summary isn't the same as title
-            summary = f"{title} - More details inside."  
+        summary = extract_summary(full_text)  # AI-powered summary extraction
 
         articles.append({
             "Title": title,
@@ -40,6 +50,9 @@ def fetch_news(company_name):
         })
 
     return articles
+
+
+
 
 # Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
