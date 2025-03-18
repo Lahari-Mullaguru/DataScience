@@ -10,7 +10,9 @@ from newspaper import Article
 from deep_translator import GoogleTranslator
 from rake_nltk import Rake
 from nltk.sentiment import SentimentIntensityAnalyzer
-from gensim.summarization import summarize
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
 
 nltk.download("vader_lexicon")
 nltk.download("stopwords")
@@ -47,8 +49,7 @@ def fetch_news(company_name):
 
         articles.append({
             "Title": title,
-            "Summary": summary,
-            "URL": url
+            "Summary": summary
         })
 
     return articles
@@ -110,6 +111,13 @@ def generate_final_sentiment(sentiment_data, company_name):
         return f"The latest news coverage about {company_name} is mostly negative. {round((sentiment_data['Negative'] / total_articles) * 100, 1)}% of articles indicate potential risks."
     else:
         return f"The news coverage for {company_name} is balanced with mixed reactions."
+
+# Summarize text using Sumy
+def summarize_text(text, sentence_count=3):
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, sentence_count)
+    return " ".join(str(sentence) for sentence in summary)
 
 # Generate Hindi text-to-speech
 def text_to_speech(text, company_name):
