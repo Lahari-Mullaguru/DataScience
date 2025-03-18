@@ -28,26 +28,25 @@ def fetch_news_api():
     coverage_differences, topic_overlap = generate_coverage_comparison(processed_articles, company)
 
     # Generate Hindi audio summary
-    summary_text = " ".join([article["summary"] for article in processed_articles[:2]])  # Use top 2 articles
+    summary_text = " ".join([article["Summary"] for article in processed_articles[:2]])  
     audio_link = text_to_speech(summary_text, company)
 
     # Construct API Response
     response = {
         "Company": company,
-        "Articles": processed_articles,
+        "Articles": processed_articles,  # Ensures JSON format follows expected order
         "Comparative Sentiment Score": {
             "Sentiment Distribution": sentiment_data,
             "Coverage Differences": coverage_differences,
             "Topic Overlap": topic_overlap
         },
         "Final Sentiment Analysis": generate_final_sentiment(sentiment_data, company),
-        "Audio": audio_link  # Audio link moved to the end
+        "Audio": audio_link  # Audio link at the end
     }
 
     return jsonify(response)
 
 if __name__ == "__main__":
-    # Ensure static directory exists for storing audio files
     if not os.path.exists("static"):
         os.makedirs("static")
 
