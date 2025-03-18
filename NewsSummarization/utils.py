@@ -31,15 +31,15 @@ def clean_text(text):
     text = text.replace("\n", " ").replace("\r", " ")  # Remove newlines
     return text
 
-# Extract title using newspaper3k (best for news articles)
-def extract_title(url):
+# Extract title using newspaper3k (fallback to RSS title)
+def extract_title(url, rss_title):
     try:
         article = Article(url)
         article.download()
         article.parse()
-        return article.title
+        return article.title if article.title else rss_title
     except:
-        return "Title Unavailable"
+        return rss_title  # Use title from RSS if extraction fails
 
 # Extract summary using TextRank (better extractive summarization)
 def extract_summary(text, num_sentences=3):
@@ -59,10 +59,10 @@ def fetch_news(company_name):
     articles = []
     for item in soup.find_all("item")[:10]:  
         url = item.link.text.strip()
-        title = extract_title(url)  
+        rss_title = item.title.text.strip()  # Use RSS title as fallback
+        title = extract_title(url, rss_title)  # Use newspaper3k if possible
         raw_summary = item.description.text
         full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-
         summary = extract_summary(full_text, 3)  
 
         articles.append({
