@@ -5,6 +5,7 @@ from gtts import gTTS
 import os
 import re
 import unicodedata
+from deep_translator import GoogleTranslator
 import nltk
 
 # Download stopwords for better topic extraction
@@ -15,7 +16,8 @@ STOPWORDS = set(stopwords.words("english"))
 
 # Function to clean text and remove unwanted Unicode characters
 def clean_text(text):
-    return unicodedata.normalize("NFKD", text).strip()
+    text = unicodedata.normalize("NFKD", text).strip()
+    return text.replace("\n", " ").replace("\r", " ")  # Remove newlines
 
 # Function to fetch news articles for any company dynamically
 def fetch_news(company_name):
@@ -24,15 +26,17 @@ def fetch_news(company_name):
     soup = BeautifulSoup(response.content, "lxml-xml")
 
     articles = []
-    for item in soup.find_all("item")[:10]:  # Fetch top 10 articles
+    for item in soup.find_all("item")[:10]:  
         title = clean_text(item.title.text)
         raw_summary = item.description.text
         summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-        url = item.link.text.strip()
+
+        if summary == title:  # Ensure summary isn't the same as title
+            summary = f"{title} - More details inside."  
 
         articles.append({
-            "title": title,
-            "summary": summary
+            "Title": title,
+            "Summary": summary
         })
 
     return articles
@@ -54,16 +58,16 @@ def compare_sentiments(articles):
     sentiment_count = {"Positive": 0, "Negative": 0, "Neutral": 0}
 
     for article in articles:
-        sentiment = analyze_sentiment(article["summary"])
-        topics = extract_topics(article["summary"])
-        article["sentiment"] = sentiment
-        article["topics"] = topics
+        sentiment = analyze_sentiment(article["Summary"])
+        topics = extract_topics(article["Summary"])
+        article["Sentiment"] = sentiment
+        article["Topics"] = topics
+
         sentiment_count[sentiment] += 1
 
     return sentiment_count, articles
 
 # Function to generate coverage differences dynamically
-
 def generate_coverage_comparison(articles, company_name):
     coverage_differences = []
     topic_overlap = {
@@ -78,24 +82,23 @@ def generate_coverage_comparison(articles, company_name):
     article1 = articles[0]
     article2 = articles[1]
 
-    topics1 = article1["topics"]
-    topics2 = article2["topics"]
+    topics1 = article1["Topics"]
+    topics2 = article2["Topics"]
 
     common_topics = list(set(topics1) & set(topics2))
     if not common_topics:
-        common_topics.append("General Business News")  # Ensure it's not empty
+        common_topics.append("General Business News")  # Ensure at least one common topic
 
     topic_overlap["Common Topics"].extend(common_topics)
     topic_overlap["Unique Topics in Article 1"] = list(set(topics1) - set(topics2))
     topic_overlap["Unique Topics in Article 2"] = list(set(topics2) - set(topics1))
 
     coverage_differences.append({
-        "Comparison": f"Article 1: {article1['title']} vs. Article 2: {article2['title']}.",
+        "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
         "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
     })
 
     return coverage_differences, topic_overlap
-
 
 # Function to generate final sentiment analysis statement
 def generate_final_sentiment(sentiment_data, company_name):
@@ -112,11 +115,13 @@ def generate_final_sentiment(sentiment_data, company_name):
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # Force Hindi pronunciation
-    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  # "This is translated news in Hindi."
-    full_text = hindi_intro + " " + text  
+    # Ensure summary is translated into Hindi
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
+    
+    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
+    full_text = hindi_intro + " " + translated_text  
 
-    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  # Force Hindi voice
+    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
 
     return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
