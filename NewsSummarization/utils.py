@@ -1,54 +1,57 @@
-# utils.py
-
-import os
-import tempfile
+import requests
+from bs4 import BeautifulSoup
+from textblob import TextBlob
 from gtts import gTTS
-from transformers import pipeline
+import os
 
-# Initialize the summarization pipeline (using a model such as Facebook's BART)
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
+def fetch_news(company_name):
+    """
+    Fetch news articles related to the given company name.
+    """
+    query = company_name.replace(" ", "+")
+    url = f"https://news.google.com/search?q={query}"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
 
-def summarize_text(text, max_length=150, min_length=30):
-    """
-    Summarize the given text using a transformer-based summarization model.
-    Returns a summarized version of the input text.
-    """
-    if not text:
-        return ""
-    summary = summarizer(text, max_length=max_length, min_length=min_length, do_sample=False)
-    return summary[0]['summary_text']
+    articles = []
+    for item in soup.find_all("article")[:10]:  # Limit to 10 articles
+        title = item.find("a", class_="DY5T1d").text
+        link = "https://news.google.com" + item.find("a", class_="DY5T1d")["href"][1:]
+        content = fetch_article_content(link)
+        articles.append({
+            "title": title,
+            "link": link,
+            "content": content
+        })
+    return articles
 
-def convert_text_to_speech(text, lang="hi", filename="output.mp3"):
+def fetch_article_content(url):
     """
-    Convert text to speech (Hindi by default) using gTTS.
-    Saves the generated audio file to a temporary directory and returns its path.
+    Fetch the content of a news article from its URL.
     """
-    tts = GtTS(text=text, lang=lang)
-    temp_dir = tempfile.gettempdir()
-    file_path = os.path.join(temp_dir, filename)
-    tts.save(file_path)
-    return file_path
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+    paragraphs = soup.find_all("p")
+    content = " ".join([p.text for p in paragraphs])
+    return content
 
-def extract_topics(text, num_topics=3):
+def analyze_sentiment(content):
     """
-    Extract key topics from the provided text.
-    (This is a simplified placeholder. In practice, you might use RAKE, spaCy, or KeyBERT.)
+    Perform sentiment analysis on the article content.
     """
-    if not text:
-        return []
-    # For demonstration, split text into words and return the first few longer words.
-    words = [word.strip('.,') for word in text.split() if len(word) > 4]
-    unique_words = list(dict.fromkeys(words))
-    return unique_words[:num_topics]
+    analysis = TextBlob(content)
+    if analysis.sentiment.polarity > 0:
+        return "Positive"
+    elif analysis.sentiment.polarity < 0:
+        return "Negative"
+    else:
+        return "Neutral"
 
-def comparative_sentiment_analysis(articles):
+def generate_hindi_tts(text):
     """
-    Given a list of articles (each with a 'sentiment_label'), compute a simple sentiment distribution.
-    Returns a dictionary with counts for "Positive", "Negative", and "Neutral".
+    Generate a Hindi TTS audio file from the given text.
     """
-    distribution = {"Positive": 0, "Negative": 0, "Neutral": 0}
-    for article in articles:
-        label = article.get("sentiment_label", "Neutral")
-        if label in distribution:
-            distribution[label] += 1
-    return distribution
+    tts = gTTS(text, lang="hi")
+    tts_file = "summary.mp3"
+    tts.save(tts_file)
+    return tts_file
