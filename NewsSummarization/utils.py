@@ -115,11 +115,10 @@ def generate_final_sentiment(sentiment_data, company_name):
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # 🔹 Ensure summary is translated into Hindi
+    # Ensure summary is translated into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
     
-    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
-    full_text = hindi_intro + " " + translated_text  
+    full_text = translated_text  
 
     tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
