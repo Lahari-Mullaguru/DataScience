@@ -13,6 +13,7 @@ from sumy.summarizers.lsa import LsaSummarizer
 
 # Download stopwords for better topic extraction
 nltk.download("stopwords")
+nltk.download("punkt")
 from nltk.corpus import stopwords
 
 STOPWORDS = set(stopwords.words("english"))
