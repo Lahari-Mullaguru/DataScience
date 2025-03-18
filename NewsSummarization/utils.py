@@ -42,11 +42,21 @@ def extract_title(url):
         if article.title and len(article.title) > 5:
             return clean_text(article.title)
     except:
-        pass
-    return "Title Unavailable"
+        return "Title Unavailable"
+
+# Extract summary using newspaper3k or TextRank
+def extract_summary(url, fallback_text, num_sentences=3):
+    """ Extracts summary from article using newspaper3k; if unavailable, falls back to TextRank """
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        return clean_text(article.summary) if article.summary else extract_summary_from_text(fallback_text, num_sentences)
+    except:
+        return extract_summary_from_text(fallback_text, num_sentences)
 
 # Extract summary using TextRank
-def extract_summary(text, num_sentences=3):
+def extract_summary_from_text(text, num_sentences=3):
     """ Uses TextRank summarization to generate key sentence summaries """
     text = clean_text(text)
     parser = PlaintextParser.from_string(text, Tokenizer("english"))
@@ -68,12 +78,11 @@ def fetch_news(company_name):
         title = extract_title(url)
         raw_summary = item.description.text
         full_text = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-        summary = extract_summary(full_text, 3)
+        summary = extract_summary(url, full_text, 3)
 
         articles.append({
             "Title": title,
-            "Summary": summary,
-            "URL": url
+            "Summary": summary
         })
 
     return articles
