@@ -63,6 +63,7 @@ def compare_sentiments(articles):
     return sentiment_count, articles
 
 # Function to generate coverage differences dynamically
+
 def generate_coverage_comparison(articles, company_name):
     coverage_differences = []
     topic_overlap = {
@@ -94,6 +95,7 @@ def generate_coverage_comparison(articles, company_name):
     })
 
     return coverage_differences, topic_overlap
+
 
 # Function to generate final sentiment analysis statement
 def generate_final_sentiment(sentiment_data, company_name):
