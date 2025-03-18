@@ -7,11 +7,14 @@ import re
 import unicodedata
 from deep_translator import GoogleTranslator
 import nltk
+from newspaper import Article
+from sklearn.feature_extraction.text import TfidfVectorizer
+from collections import Counter
 
-# Download stopwords for better topic extraction
+# Download necessary resources
 nltk.download("stopwords")
+nltk.download("punkt")
 from nltk.corpus import stopwords
-
 STOPWORDS = set(stopwords.words("english"))
 
 # Function to clean text and remove unwanted Unicode characters
@@ -28,18 +31,31 @@ def fetch_news(company_name):
     articles = []
     for item in soup.find_all("item")[:10]:  
         title = clean_text(item.title.text)
-        raw_summary = item.description.text
-        summary = clean_text(BeautifulSoup(raw_summary, "html.parser").get_text())  
-
-        if summary == title:  # Ensure summary isn't the same as title
-            summary = f"{title} - More details inside."  
+        article_url = item.link.text
+        
+        # Try fetching full article text
+        summary = extract_article_summary(article_url)
+        
+        if not summary:
+            summary = f"{title} - More details inside."  # Default fallback
 
         articles.append({
             "Title": title,
-            "Summary": summary
+            "Summary": summary,
+            "URL": article_url
         })
-
     return articles
+
+# Function to fetch full article summary
+def extract_article_summary(url):
+    try:
+        article = Article(url)
+        article.download()
+        article.parse()
+        article.nlp()
+        return article.summary
+    except Exception as e:
+        return None
 
 # Function to analyze sentiment dynamically for any text
 def analyze_sentiment(text):
@@ -47,11 +63,15 @@ def analyze_sentiment(text):
     polarity = analysis.sentiment.polarity
     return "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
 
-# Function to extract meaningful topics from article summaries
-def extract_topics(summary):
-    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words of 4+ letters
-    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS]  # Remove stopwords
-    return list(set(keywords))[:3]  # Return top 3 meaningful keywords
+# Function to extract meaningful topics using TF-IDF
+def extract_topics(articles):
+    vectorizer = TfidfVectorizer(stop_words='english', max_features=10)
+    summaries = [article["Summary"] for article in articles]
+    
+    tfidf_matrix = vectorizer.fit_transform(summaries)
+    feature_names = vectorizer.get_feature_names_out()
+    top_keywords = Counter(feature_names).most_common(3)
+    return [keyword[0] for keyword in top_keywords]
 
 # Function to compare sentiments across multiple articles
 def compare_sentiments(articles):
@@ -59,7 +79,7 @@ def compare_sentiments(articles):
 
     for article in articles:
         sentiment = analyze_sentiment(article["Summary"])
-        topics = extract_topics(article["Summary"])
+        topics = extract_topics([article])
         article["Sentiment"] = sentiment
         article["Topics"] = topics
 
@@ -71,7 +91,7 @@ def compare_sentiments(articles):
 def generate_coverage_comparison(articles, company_name):
     coverage_differences = []
     topic_overlap = {
-        "Common Topics": [company_name],  # Ensure company name is always included
+        "Common Topics": [company_name],  
         "Unique Topics in Article 1": [],
         "Unique Topics in Article 2": []
     }
@@ -87,7 +107,7 @@ def generate_coverage_comparison(articles, company_name):
 
     common_topics = list(set(topics1) & set(topics2))
     if not common_topics:
-        common_topics.append("General Business News")  # Ensure at least one common topic
+        common_topics.append("General Business News")
 
     topic_overlap["Common Topics"].extend(common_topics)
     topic_overlap["Unique Topics in Article 1"] = list(set(topics1) - set(topics2))
@@ -95,7 +115,7 @@ def generate_coverage_comparison(articles, company_name):
 
     coverage_differences.append({
         "Comparison": f"Article 1: {article1['Title']} vs. Article 2: {article2['Title']}.",
-        "Impact": f"The first article emphasizes {' '.join(topics1)}, while the second article focuses on {' '.join(topics2)}."
+        "Impact": f"The first article focuses on {', '.join(topics1)}, while the second article highlights {', '.join(topics2)}."
     })
 
     return coverage_differences, topic_overlap
@@ -114,13 +134,9 @@ def generate_final_sentiment(sentiment_data, company_name):
 # Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
-
-    # Ensure summary is translated into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
     
-    full_text = translated_text  
-
-    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
+    tts = gTTS(translated_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
 
     return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
