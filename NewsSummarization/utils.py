@@ -94,69 +94,6 @@ def analyze_sentiment(text):
     polarity = analysis.sentiment.polarity
     return "Positive" if polarity > 0 else "Negative" if polarity < 0 else "Neutral"
 
-# Function to extract meaningful topics from article summaries
-def extract_topics(summary):
-    words = re.findall(r'\b[A-Za-z]{4,}\b', summary)  # Extract words of 4+ letters
-    keywords = [word.lower() for word in words if word.lower() not in STOPWORDS]  # Remove stopwords
-    return list(set(keywords))[:3]  # Return top 3 meaningful keywords
-
-# Function to compare sentiments across multiple articles
-def compare_sentiments(articles):
-    sentiment_count = {"Positive": 0, "Negative": 0, "Neutral": 0}
-
-    for article in articles:
-        sentiment = analyze_sentiment(article["Summary"])
-        topics = extract_topics(article["Summary"])
-        article["Sentiment"] = sentiment
-        article["Topics"] = topics
-
-        sentiment_count[sentiment] += 1
-
-    return sentiment_count, articles
-# Function to generate comparative sentiment analysis
-def generate_comparative_analysis(articles):
-    """Generates comparative sentiment score with coverage differences & topic overlap."""
-    if len(articles) < 2:
-        return {
-            "Coverage Differences": [],
-            "Topic Overlap": {
-                "Common Topics": [],
-                "Unique Topics in Article 1": [],
-                "Unique Topics in Article 2": []
-            }
-        }
-
-    # Extract first two articles for comparison
-    article1, article2 = articles[0], articles[1]
-
-    # Extract topics for both articles
-    topics1 = set(article1["Topics"])
-    topics2 = set(article2["Topics"])
-
-    # Compute common and unique topics
-    topic_overlap = {
-        "Common Topics": list(topics1 & topics2),
-        "Unique Topics in Article 1": list(topics1 - topics2),
-        "Unique Topics in Article 2": list(topics2 - topics1)
-    }
-
-    coverage_differences = [
-        {
-            "Comparison": f"Article 1 highlights {article1['Title']}, while Article 2 discusses {article2['Title']}.",
-            "Impact": "The first article emphasizes financial growth and innovation, while the second focuses on regulatory concerns."
-        },
-        {
-            "Comparison": f"Article 1 is focused on {', '.join(article1['Topics'])}, whereas Article 2 is about {', '.join(article2['Topics'])}.",
-            "Impact": "Investors may react positively to growth news but remain cautious due to regulatory scrutiny."
-        }
-    ]
-
-    return {
-        "Coverage Differences": coverage_differences,
-        "Topic Overlap": topic_overlap
-    }
-
-
 # Function to generate Hindi text-to-speech audio dynamically
 def text_to_speech(text, company_name):
     """ Converts news summary into Hindi text-to-speech audio """
