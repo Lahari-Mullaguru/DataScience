@@ -10,3 +10,4 @@ newspaper3k
 nltk
 lxml_html_clean
 rake_nltk
+gensim
