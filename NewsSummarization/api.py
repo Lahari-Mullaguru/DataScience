@@ -4,7 +4,7 @@ import os
 
 app = Flask(__name__)
 
-# Serve the audio file for playback dynamically
+# Serve static files
 @app.route('/static/<filename>')
 def serve_audio(filename):
     return send_from_directory("static", filename)
@@ -17,25 +17,18 @@ def fetch_news_api():
     if not company:
         return jsonify({"error": "Company name is required"}), 400
 
-    # Fetch articles using improved method
     articles = fetch_news(company)
 
     if not articles:
         return jsonify({"message": f"No articles found for {company}", "articles": []}), 200
 
-    # Perform sentiment analysis with improved topic extraction
     sentiment_data, processed_articles = compare_sentiments(articles)
-
-    # Generate comparative sentiment insights
     coverage_differences, topic_overlap = generate_coverage_comparison(processed_articles, company)
 
-    # Improved summary text selection for TTS
-    summary_text = " ".join([article["Summary"] for article in processed_articles if len(article["Summary"]) > 50][:3])
-    
-    # Generate Hindi text-to-speech audio
-    audio_link = text_to_speech(summary_text, company)
+    full_text = " ".join([article["Summary"] for article in processed_articles])
+    summarized_text = summarize(full_text, word_count=50)
+    audio_link = text_to_speech(summarized_text, company)
 
-    # Construct final JSON response
     response = {
         "Company": company,
         "Articles": processed_articles,
@@ -49,7 +42,6 @@ def fetch_news_api():
     }
 
     return jsonify(response)
-
 
 if __name__ == "__main__":
     if not os.path.exists("static"):
