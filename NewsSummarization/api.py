@@ -1,16 +1,10 @@
 from flask import Flask, request, jsonify, send_from_directory
-from utils import (
-    fetch_news, 
-    compare_sentiments, 
-    generate_coverage_comparison, 
-    generate_final_sentiment, 
-    text_to_speech
-)
+from utils import fetch_news, analyze_sentiment, text_to_speech, compare_sentiments, generate_coverage_comparison, generate_final_sentiment
 import os
 
 app = Flask(__name__)
 
-# Route to serve static files (Hindi TTS Audio)
+# Serve the audio file for playback dynamically
 @app.route('/static/<filename>')
 def serve_audio(filename):
     return send_from_directory("static", filename)
@@ -23,53 +17,37 @@ def fetch_news_api():
     if not company:
         return jsonify({"error": "Company name is required"}), 400
 
-    try:
-        # Fetch articles
-        articles = fetch_news(company)
+    articles = fetch_news(company)
 
-        # If no articles found, return early
-        if not articles:
-            return jsonify({
-                "message": f"No articles found for {company}", 
-                "Articles": []
-            }), 200
+    if not articles:
+        return jsonify({"message": f"No articles found for {company}", "articles": []}), 200
 
-        # Perform sentiment analysis
-        sentiment_data, processed_articles = compare_sentiments(articles)
+    # Perform sentiment analysis
+    sentiment_data, processed_articles = compare_sentiments(articles)
 
-        # Compare coverage
-        coverage_differences, topic_overlap = generate_coverage_comparison(processed_articles, company)
+    # 🔹 Pass `company` argument to `generate_coverage_comparison`
+    coverage_differences, topic_overlap = generate_coverage_comparison(processed_articles, company)
 
-        # Generate consolidated summary (instead of only 2 articles)
-        summary_text = " ".join([article["Summary"] for article in processed_articles])
+    # Generate Hindi audio summary
+    summary_text = " ".join([article["Summary"] for article in processed_articles[:2]])  
+    audio_link = text_to_speech(summary_text, company)
 
-        # Convert to Hindi Text-to-Speech (Handling Possible Errors)
-        try:
-            audio_link = text_to_speech(summary_text, company)
-        except Exception as e:
-            print(f"Text-to-Speech Error: {str(e)}")
-            audio_link = None  # Fail gracefully if TTS doesn't work
+    # Construct API Response
+    response = {
+        "Company": company,
+        "Articles": processed_articles,  # Ensures JSON format follows expected order
+        "Comparative Sentiment Score": {
+            "Sentiment Distribution": sentiment_data,
+            "Coverage Differences": coverage_differences,
+            "Topic Overlap": topic_overlap
+        },
+        "Final Sentiment Analysis": generate_final_sentiment(sentiment_data, company),
+        "Audio": audio_link  # Audio link now at the end
+    }
 
-        # Prepare Response
-        response = {
-            "Company": company,
-            "Articles": processed_articles,
-            "Comparative Sentiment Score": {
-                "Sentiment Distribution": sentiment_data,
-                "Coverage Differences": coverage_differences,
-                "Topic Overlap": topic_overlap
-            },
-            "Final Sentiment Analysis": generate_final_sentiment(sentiment_data, company),
-            "Audio": audio_link
-        }
-
-        return jsonify(response)
-
-    except Exception as e:
-        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+    return jsonify(response)
 
 if __name__ == "__main__":
-    # Ensure static directory exists
     if not os.path.exists("static"):
         os.makedirs("static")
 
