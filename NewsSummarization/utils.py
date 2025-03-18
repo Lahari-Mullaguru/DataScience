@@ -8,9 +8,14 @@ import unicodedata
 from deep_translator import GoogleTranslator
 import nltk
 from nltk.tokenize import sent_tokenize
+from nltk.corpus import stopwords
 
-# Download NLTK data for sentence tokenization
+# Download NLTK data for sentence tokenization and stopwords
 nltk.download("punkt")
+nltk.download("stopwords")
+
+# Define STOPWORDS
+STOPWORDS = set(stopwords.words("english"))
 
 # Function to clean text and remove unwanted characters
 def clean_text(text):
