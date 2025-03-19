@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
-from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, generate_audio_summary_pyttsx3
+from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech
 import json
 
 app = FastAPI()
@@ -22,16 +22,16 @@ def analyze_news(company_name: str):
     # Generate comparative analysis
     comparative_analysis = generate_comparative_analysis(articles_with_sentiment)
     
-    # Generate final sentiment analysis
+    # Generate final sentiment analysis (e.g., based on the most frequent sentiment)
     final_sentiment_analysis = (
         f"{company_name}'s latest news coverage is mostly "
         f"{max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
     )
     
     # Generate Hindi TTS audio using pyttsx3
-    audio_url = generate_audio_summary_pyttsx3(comparative_analysis, final_sentiment_analysis, company_name)
+    audio_url = text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
     
-    # Prepare the final output
+    # Prepare the final output JSON
     output = {
         "Company": company_name,
         "Articles": [
@@ -48,7 +48,7 @@ def analyze_news(company_name: str):
             "Topic Overlap": comparative_analysis["Topic Overlap"]
         },
         "Final Sentiment Analysis": final_sentiment_analysis,
-        "Audio": audio_url  # Return the full URL of the audio file
+        "Audio": audio_url  # URL to the generated audio file
     }
     
     # Pretty-print the JSON output
