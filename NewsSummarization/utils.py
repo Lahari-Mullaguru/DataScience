@@ -7,10 +7,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
-import pyttsx3
-
-# For converting WAV to MP3
-from pydub import AudioSegment
+from gtts import gTTS
 
 # Load environment variables from .env file
 load_dotenv()
