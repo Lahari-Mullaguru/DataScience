@@ -1,7 +1,7 @@
 import requests
 import os
 from textblob import TextBlob
-from collections import Counter
+from collections import Counter, defaultdict
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -74,7 +74,7 @@ def extract_topics(content):
     topics = [word for word, _ in word_freq.most_common(3)]
     return topics
 
-# Generate comparative analysis
+# Generate comparative analysis with relaxed common topics
 def generate_comparative_analysis(articles):
     sentiment_distribution = {
         "Positive": 0,
@@ -85,18 +85,22 @@ def generate_comparative_analysis(articles):
     for article in articles:
         sentiment_distribution[article["sentiment"]] += 1
     
-    # Extract common and unique topics
-    all_topics = [set(article["topics"]) for article in articles]
-    common_topics = list(set.intersection(*all_topics)) if all_topics else []
+    # Extract all topics and count their occurrences across articles
+    topic_counter = defaultdict(int)
+    for article in articles:
+        for topic in article["topics"]:
+            topic_counter[topic] += 1
+    
+    # Common topics are those that appear in at least 2 articles
+    common_topics = [topic for topic, count in topic_counter.items() if count >= 2]
     
     # Calculate unique topics for each article
     unique_topics = {}
     for i, article in enumerate(articles):
-        if len(all_topics) > 1:
-            other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
-        else:
-            other_topics = set()
-        unique_topics[f"Unique Topics in Article {i+1}"] = list(set(article["topics"]) - other_topics)
+        # Get topics that are unique to this article
+        unique_topics[f"Unique Topics in Article {i+1}"] = [
+            topic for topic in article["topics"] if topic_counter[topic] == 1
+        ]
     
     # Dynamically generate coverage differences
     coverage_differences = []
@@ -140,7 +144,7 @@ def generate_comparative_analysis(articles):
     
     return comparative_analysis
 
-# Function to generate Hindi text-to-speech audio using pyttsx3 and convert it to MP3
+# Function to generate Hindi text-to-speech audio using gTTS and save it as an MP3 file
 def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
     # Define the MP3 filename
     mp3_filename = f"static/{company_name}_summary_audio.mp3"
