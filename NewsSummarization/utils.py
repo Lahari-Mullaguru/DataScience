@@ -7,7 +7,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
-from TTS.api import TTS  # Import Coqui TTS
+import pyttsx3
 
 # Load environment variables from .env file
 load_dotenv()
@@ -174,14 +174,14 @@ def generate_detailed_summary(comparative_analysis, overall_sentiment):
     detailed_summary = "\n".join(summary_lines)
     return detailed_summary
 
-# Generate Hindi text-to-speech audio dynamically using Coqui TTS.
-def generate_audio_summary_coqui(comparative_analysis, overall_sentiment, company_name):
+# Generate Hindi text-to-speech audio dynamically using pyttsx3.
+def generate_audio_summary_pyttsx3(comparative_analysis, overall_sentiment, company_name):
     """
     Creates a comprehensive audio summary that includes:
     - Sentiment Distribution: Count of positive, negative, and neutral articles.
     - Key Insights: Comparative analysis details such as coverage differences.
     - Final Sentiment Analysis: Overall sentiment conclusion.
-    The summary is translated into Hindi and then converted to speech using Coqui TTS.
+    The summary is translated into Hindi and then converted to speech using pyttsx3.
     """
     # Generate the detailed summary text
     detailed_summary = generate_detailed_summary(comparative_analysis, overall_sentiment)
@@ -189,14 +189,18 @@ def generate_audio_summary_coqui(comparative_analysis, overall_sentiment, compan
     # Translate the summary into Hindi
     translated_summary = GoogleTranslator(source="auto", target="hi").translate(detailed_summary)
     
-    # Initialize Coqui TTS with a Hindi-supported model.
-    # Replace "tts_models/hi/vits" with the actual model identifier available from Coqui TTS if necessary.
-    tts_model = TTS(model_name="tts_models/hi/vits", progress_bar=False, gpu=False)
+    # Initialize pyttsx3 TTS engine
+    engine = pyttsx3.init()
     
-    # Define the output audio file path (using .wav format for Coqui TTS)
+    # Optionally, adjust properties such as speech rate or volume here:
+    # engine.setProperty('rate', 150)
+    # engine.setProperty('volume', 1.0)
+    
+    # Define the output audio file path (using .wav format)
     audio_filename = f"static/{company_name}_summary_audio.wav"
     
-    # Generate the speech audio and save to file
-    tts_model.tts_to_file(translated_summary, file_path=audio_filename)
+    # Save the translated text to an audio file
+    engine.save_to_file(translated_summary, audio_filename)
+    engine.runAndWait()
     
     return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.wav"
