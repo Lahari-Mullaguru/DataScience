@@ -1,7 +1,13 @@
 from fastapi import FastAPI
-from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech_hindi
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech
+import json
 
 app = FastAPI()
+
+# Serve static files from the "static" folder
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/analyze-news")
 def analyze_news(company_name: str):
@@ -17,8 +23,9 @@ def analyze_news(company_name: str):
     # Generate comparative analysis
     comparative_analysis = generate_comparative_analysis(articles_with_sentiment)
     
-    # Generate Hindi TTS (optional, can be excluded if not needed in the API response)
-    tts_output = text_to_speech_hindi(comparative_analysis)
+    # Generate Hindi TTS
+    final_sentiment_analysis = f"{company_name}'s latest news coverage is mostly {max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
+    audio_filename = text_to_speech(final_sentiment_analysis, company_name)
     
     # Prepare the final output
     output = {
@@ -36,8 +43,10 @@ def analyze_news(company_name: str):
             "Coverage Differences": comparative_analysis["Coverage Differences"],
             "Topic Overlap": comparative_analysis["Topic Overlap"]
         },
-        "Final Sentiment Analysis": f"{company_name}'s latest news coverage is mostly {max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}.",
-        "Audio": tts_output  # Optional: Include the path to the TTS file
+        "Final Sentiment Analysis": final_sentiment_analysis,
+        "Audio": f"/static/{company_name}_summary_audio.mp3"  # Return the path to the audio file
     }
     
-    return output
+    # Pretty-print the JSON output
+    pretty_output = json.dumps(output, indent=4, ensure_ascii=False)
+    return JSONResponse(content=json.loads(pretty_output))
