@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
-from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech
+from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, generate_audio_summary_coqui
 import json
 
 app = FastAPI()
@@ -23,10 +23,13 @@ def analyze_news(company_name: str):
     comparative_analysis = generate_comparative_analysis(articles_with_sentiment)
     
     # Generate final sentiment analysis
-    final_sentiment_analysis = f"{company_name}'s latest news coverage is mostly {max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
+    final_sentiment_analysis = (
+        f"{company_name}'s latest news coverage is mostly "
+        f"{max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
+    )
     
-    # Generate Hindi TTS
-    audio_url = text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
+    # Generate Hindi TTS audio using Coqui TTS
+    audio_url = generate_audio_summary_coqui(comparative_analysis, final_sentiment_analysis, company_name)
     
     # Prepare the final output
     output = {
