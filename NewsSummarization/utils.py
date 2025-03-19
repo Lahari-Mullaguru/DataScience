@@ -7,11 +7,15 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
+from deep_translator import GoogleTranslator
 
 # Load environment variables from .env file
 load_dotenv()
-API_KEY = os.getenv("NEWSAPI_API_KEY")
 
+# Retrieve the API key
+API_KEY = os.getenv("NEWSAPI_API_KEY")
+if not API_KEY:
+    raise ValueError("API key not found. Please set the NEWSAPI_API_KEY environment variable.")
 
 # Download NLTK data (only once)
 nltk.download("punkt")
@@ -19,8 +23,6 @@ nltk.download("stopwords")
 
 # Fetch news articles using NewsAPI
 def fetch_news(company_name):
-    # Retrieve the API key
-    API_KEY = os.getenv("NEWSAPI_API_KEY")
     API_ENDPOINT = "https://newsapi.org/v2/everything"
     
     params = {
@@ -39,6 +41,7 @@ def fetch_news(company_name):
             "content": article["content"]
         } for article in articles]
     else:
+        print(f"Error: {response.status_code} - {response.text}")  # Debug statement
         return []
 
 # Perform sentiment analysis using TextBlob
@@ -83,9 +86,13 @@ def generate_comparative_analysis(articles):
         sentiment_distribution[article["sentiment"]] += 1
     
     # Extract common and unique topics
-    all_topics = [article["topics"] for article in articles]
-    common_topics = list(set.intersection(*[set(topics) for topics in all_topics]))
-    unique_topics = list(set.union(*[set(topics) for topics in all_topics]) - set(common_topics))
+    all_topics = [set(article["topics"]) for article in articles]
+    common_topics = list(set.intersection(*all_topics))
+    unique_topics = []
+    
+    for i, article in enumerate(articles):
+        other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
+        unique_topics.append(list(set(article["topics"]) - other_topics))
     
     # Dynamically generate coverage differences
     coverage_differences = []
@@ -131,8 +138,17 @@ def generate_comparative_analysis(articles):
     
     return comparative_analysis
 
-# Convert text to Hindi speech using gTTS
-def text_to_speech_hindi(text):
-    tts = gTTS(text=str(text), lang="hi")
-    tts.save("output.mp3")
-    return "output.mp3"
+# Function to generate Hindi text-to-speech audio dynamically
+def text_to_speech(text, company_name):
+    audio_filename = f"static/{company_name}_summary_audio.mp3"
+
+    # 🔹 Ensure summary is translated into Hindi
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
+    
+    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
+    full_text = hindi_intro + " " + translated_text  
+
+    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
+    tts.save(audio_filename)
+
+    return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
