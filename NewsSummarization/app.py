@@ -22,37 +22,41 @@ if st.button("Analyze News"):
                 # Display the results
                 st.subheader(f"Analysis for {company_name}")
 
-                # Display articles
+                # Display articles inside dropdowns
                 st.write("### Articles")
                 for i, article in enumerate(result["Articles"], 1):
-                    st.write(f"**Title:** {article['Title']}")
-                    st.write(f"**Summary:** {article['Summary']}")
-                    st.write(f"**Sentiment:** {article['Sentiment']}")
-                    st.write(f"**Topics:** {', '.join(article['Topics'])}")
-                    st.write("---")
+                    with st.expander(f"Article {i}: {article['Title']}"):
+                        st.write(f"**Summary:** {article['Summary']}")
+                        st.write(f"**Sentiment:** {article['Sentiment']}")
+                        st.write(f"**Topics:** {', '.join(article['Topics'])}")
 
-                # Display Sentiment Distribution as plain text
+                # Display Sentiment Distribution
+                st.write("### Sentiment Distribution")
                 sentiment_distribution = result["Comparative Sentiment Score"]["Sentiment Distribution"]
-                st.write(f"### Sentiment Distribution: {sentiment_distribution}")
+                st.write(f"Positive: {sentiment_distribution['Positive']}")
+                st.write(f"Negative: {sentiment_distribution['Negative']}")
+                st.write(f"Neutral: {sentiment_distribution['Neutral']}")
 
-                # Display Coverage Differences as plain text
+                # Display Coverage Differences
                 st.write("### Coverage Differences")
                 for coverage in result["Comparative Sentiment Score"]["Coverage Differences"]:
                     st.write(f"{coverage['Comparison']}")
                     st.write(f"{coverage['Impact']}")
                     st.write("---")
 
-                # Display Topic Overlap as plain text
+                # Display Topic Overlap 
                 st.write("### Topic Overlap")
                 topic_overlap = result["Comparative Sentiment Score"]["Topic Overlap"]
                 
-                topic_text = f"**Common Topics:** {', '.join(topic_overlap.get('Common Topics', []))}"
+                # Display Common Topics
+                st.write("**Common Topics:**")
+                st.write(", ".join(topic_overlap.get("Common Topics", [])))
+
+                # Display Unique Topics with each entry on a new line
                 unique_topics = {k: v for k, v in topic_overlap.items() if k.startswith("Unique Topics")}
-                
                 for key, value in unique_topics.items():
-                    topic_text += f"\n**{key}:** {', '.join(value)}"
-                
-                st.write(topic_text)
+                    st.write(f"**{key}:**")
+                    st.write(", ".join(value))
 
                 # Display final sentiment analysis
                 st.subheader("Final Sentiment Analysis")
