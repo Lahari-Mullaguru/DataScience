@@ -6,6 +6,12 @@ from collections import Counter
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+API_KEY = os.getenv("NEWSAPI_API_KEY")
+
 
 # Download NLTK data (only once)
 nltk.download("punkt")
@@ -13,7 +19,8 @@ nltk.download("stopwords")
 
 # Fetch news articles using NewsAPI
 def fetch_news(company_name):
-    API_KEY = os.getenv("NEWSAPI_API_KEY")  # Load API key from environment variable
+    # Retrieve the API key
+    API_KEY = API_KEY
     API_ENDPOINT = "https://newsapi.org/v2/everything"
     
     params = {
