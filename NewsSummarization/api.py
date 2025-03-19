@@ -1,4 +1,12 @@
-from fastapi import Response
+from fastapi import FastAPI, Response
+from fastapi.staticfiles import StaticFiles
+from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech
+import json
+
+app = FastAPI()
+
+# Serve static files from the "static" folder
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/analyze-news")
 def analyze_news(company_name: str):
@@ -40,4 +48,5 @@ def analyze_news(company_name: str):
     
     # Pretty-print the JSON output
     pretty_output = json.dumps(output, indent=4, ensure_ascii=False)
+    print(pretty_output)  # Debug statement
     return Response(content=pretty_output, media_type="application/json")
