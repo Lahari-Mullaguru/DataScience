@@ -20,7 +20,7 @@ nltk.download("stopwords")
 # Fetch news articles using NewsAPI
 def fetch_news(company_name):
     # Retrieve the API key
-    API_KEY = API_KEY
+    API_KEY = os.getenv("NEWSAPI_API_KEY")
     API_ENDPOINT = "https://newsapi.org/v2/everything"
     
     params = {
