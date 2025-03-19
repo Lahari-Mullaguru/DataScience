@@ -28,7 +28,7 @@ def analyze_news(company_name: str):
         f"{max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
     )
     
-    # Generate Hindi TTS audio using pyttsx3
+    # Generate Hindi TTS audio using gTTS
     audio_url = text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
     
     # Prepare the final output JSON
