@@ -88,11 +88,12 @@ def generate_comparative_analysis(articles):
     # Extract common and unique topics
     all_topics = [set(article["topics"]) for article in articles]
     common_topics = list(set.intersection(*all_topics))
-    unique_topics = []
     
+    # Calculate unique topics for each article
+    unique_topics = {}
     for i, article in enumerate(articles):
         other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
-        unique_topics.append(list(set(article["topics"]) - other_topics))
+        unique_topics[f"Unique Topics in Article {i+1}"] = list(set(article["topics"]) - other_topics)
     
     # Dynamically generate coverage differences
     coverage_differences = []
@@ -132,7 +133,7 @@ def generate_comparative_analysis(articles):
         "Coverage Differences": coverage_differences,
         "Topic Overlap": {
             "Common Topics": common_topics,
-            "Unique Topics": unique_topics
+            **unique_topics  # Add unique topics for each article
         }
     }
     
@@ -142,7 +143,7 @@ def generate_comparative_analysis(articles):
 def text_to_speech(text, company_name):
     audio_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # 🔹 Ensure summary is translated into Hindi
+    # Ensure summary is translated into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
     
     hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
@@ -151,4 +152,4 @@ def text_to_speech(text, company_name):
     tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
 
-    return f"http://127.0.0.1:5000/static/{company_name}_summary_audio.mp3"
+    return audio_filename
