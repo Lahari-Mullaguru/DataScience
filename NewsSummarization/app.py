@@ -31,7 +31,15 @@ if st.button("Analyze News"):
             # Display comparative analysis
             st.write("### Comparative Analysis")
             st.write(f"**Sentiment Distribution:** {result['Comparative Sentiment Score']['Sentiment Distribution']}")
-            st.write(f"**Common Topics:** {', '.join(result['Comparative Sentiment Score']['Topic Overlap']['Common Topics'])}")
+            st.write("### Coverage Differences")
+            for coverage in data["Comparative Sentiment Score"]["Coverage Differences"]:
+                    st.write(f"{coverage['Comparison']}")
+                    st.write(f"{coverage['Impact']}")
+                    st.write("---")
+
+            st.write("### Topic Overlap")
+            topic_overlap = data["Comparative Sentiment Score"]["Topic Overlap"]
+            st.json(topic_overlap)
             
             # Display final sentiment analysis
             st.write("### Final Sentiment Analysis")
