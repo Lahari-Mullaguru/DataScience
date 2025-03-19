@@ -30,32 +30,32 @@ if st.button("Analyze News"):
                         st.write(f"**Sentiment:** {article['Sentiment']}")
                         st.write(f"**Topics:** {', '.join(article['Topics'])}")
 
-                # Display Sentiment Distribution 
+                # Display Sentiment Distribution
                 st.write("### Sentiment Distribution")
                 sentiment_distribution = result["Comparative Sentiment Score"]["Sentiment Distribution"]
                 st.write(f"Positive: {sentiment_distribution['Positive']}")
                 st.write(f"Negative: {sentiment_distribution['Negative']}")
                 st.write(f"Neutral: {sentiment_distribution['Neutral']}")
 
-                # Display Coverage Differences 
+                # Display Coverage Differences
                 st.write("### Coverage Differences")
                 for coverage in result["Comparative Sentiment Score"]["Coverage Differences"]:
                     st.write(f"{coverage['Comparison']}")
                     st.write(f"{coverage['Impact']}")
                     st.write("---")
 
-                # Display Topic Overlap 
+                # Display Topic Overlap
                 st.write("### Topic Overlap")
                 topic_overlap = result["Comparative Sentiment Score"]["Topic Overlap"]
 
                 # Display Common Topics
                 common_topics = ", ".join(topic_overlap.get("Common Topics", []))
-                st.write(f"Common Topics: {common_topics if common_topics else 'None'}")
+                st.write(f"**Common Topics:** {common_topics if common_topics else 'None'}")
 
-                # Display Unique Topics (Each on a new line)
+                # Display Unique Topics
                 for key, value in topic_overlap.items():
                     if key.startswith("Unique Topics"):
-                        st.write(f"{key}: {', '.join(value)}")
+                        st.write(f"**{key}:** {', '.join(value)}")
 
                 # Display final sentiment analysis
                 st.subheader("Final Sentiment Analysis")
