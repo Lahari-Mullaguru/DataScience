@@ -145,8 +145,7 @@ def generate_comparative_analysis(articles):
 
 # Function to generate Hindi text-to-speech audio using pyttsx3 and convert it to MP3
 def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
-    # Generate a WAV filename
-    wav_filename = f"static/{company_name}_summary_audio.wav"
+    # Define the MP3 filename
     mp3_filename = f"static/{company_name}_summary_audio.mp3"
 
     # Extract components for the summary text
@@ -161,6 +160,7 @@ def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
             unique_topics_list.append(f"{key}: {', '.join(value)}")
     unique_topics_str = "; ".join(unique_topics_list) if unique_topics_list else "None"
 
+    # Create a text summary
     summary_text = (
         f"Sentiment Distribution: {sentiment_distribution['Positive']} positive, "
         f"{sentiment_distribution['Negative']} negative, and {sentiment_distribution['Neutral']} neutral articles. "
@@ -172,25 +172,11 @@ def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
 
     # Translate the summary text into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(summary_text)
-    full_text = translated_text  # You may prepend any additional intro if desired
 
-    # Initialize the TTS engine
-    engine = pyttsx3.init()
+    # Generate speech from the translated text
+    tts = gTTS(translated_text, lang="hi", slow=False)
 
-    # Set Hindi voice if available
-    voices = engine.getProperty("voices")
-    for voice in voices:
-        if "hindi" in voice.name.lower():
-            engine.setProperty("voice", voice.id)
-            break
-
-    # Save the translated text to a WAV file
-    engine.save_to_file(full_text, wav_filename)
-    engine.runAndWait()
-
-    # Convert the WAV file to MP3 using pydub
-    sound = AudioSegment.from_wav(wav_filename)
-    sound.export(mp3_filename, format="mp3")
-    os.remove(wav_filename)  # Optionally remove the WAV file after conversion
+    # Save the MP3 file
+    tts.save(mp3_filename)
 
     return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.mp3"
