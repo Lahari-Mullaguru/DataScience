@@ -2,19 +2,11 @@ from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 from utils import fetch_news, analyze_sentiment, generate_comparative_analysis, text_to_speech
 import json
-import os
 
 app = FastAPI()
 
 # Serve static files from the "static" folder
-if not os.path.exists("static"):
-    os.makedirs("static")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Root endpoint to keep Render from shutting down
-@app.get("/")
-def home():
-    return {"message": "FastAPI Backend is Running!"}
 
 @app.get("/analyze-news")
 def analyze_news(company_name: str):
