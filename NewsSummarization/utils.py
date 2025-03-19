@@ -8,6 +8,11 @@ from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
 from gtts import gTTS
+# Download NLTK data files
+nltk.download("punkt")
+nltk.download("stopwords")
+nltk.download("punkt_tab")
+
 
 # Load environment variables from .env file
 load_dotenv()
