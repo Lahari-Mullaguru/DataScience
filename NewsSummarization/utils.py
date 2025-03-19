@@ -1,14 +1,13 @@
 import requests
 import os
 from textblob import TextBlob
-from gtts import gTTS
 from collections import Counter
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
-from TTS.api import TTS
+from TTS.api import TTS  # Import Coqui TTS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -77,7 +76,7 @@ def extract_topics(content):
     topics = [word for word, _ in word_freq.most_common(3)]
     return topics
 
-# Generate comparative analysis
+# Generate comparative analysis based on sentiment and topics
 def generate_comparative_analysis(articles):
     sentiment_distribution = {
         "Positive": 0,
@@ -100,7 +99,10 @@ def generate_comparative_analysis(articles):
     # Calculate unique topics for each article
     unique_topics = {}
     for i, article in enumerate(articles):
-        other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
+        if len(all_topics) > 1:
+            other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
+        else:
+            other_topics = set()
         unique_topics[f"Unique Topics in Article {i+1}"] = list(set(article["topics"]) - other_topics)
     
     # Dynamically generate coverage differences
@@ -118,18 +120,16 @@ def generate_comparative_analysis(articles):
         # Generate impact based on sentiment
         if article1["sentiment"] == "Positive" and article2["sentiment"] == "Negative":
             impact = (
-                f"The first article highlights positive developments, boosting confidence in the company's growth, "
-                f"while the second article raises concerns about potential challenges."
+                "The first article highlights positive developments, boosting confidence in the company's growth, "
+                "while the second article raises concerns about potential challenges."
             )
         elif article1["sentiment"] == "Negative" and article2["sentiment"] == "Positive":
             impact = (
-                f"The first article raises concerns about challenges, while the second article highlights positive developments, "
-                f"boosting confidence in the company's growth."
+                "The first article raises concerns about challenges, while the second article highlights positive developments, "
+                "boosting confidence in the company's growth."
             )
         else:
-            impact = (
-                f"Both articles provide a balanced perspective on the company's current situation."
-            )
+            impact = "Both articles provide a balanced perspective on the company's current situation."
         
         coverage_differences.append({
             "Comparison": comparison,
@@ -147,34 +147,56 @@ def generate_comparative_analysis(articles):
     
     return comparative_analysis
 
-# Function to generate Hindi text-to-speech audio dynamically
-def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
-    audio_filename = f"static/{company_name}_summary_audio.wav"
-
-    # Generate the summary text in English
-    sentiment_distribution = comparative_analysis["Sentiment Distribution"]
-    coverage_differences = comparative_analysis["Coverage Differences"]
-    topic_overlap = comparative_analysis["Topic Overlap"]
-
-    summary_text = (
-        f"Sentiment Distribution: {sentiment_distribution['Positive']} positive, "
-        f"{sentiment_distribution['Negative']} negative, and {sentiment_distribution['Neutral']} neutral articles. "
-        f"Coverage Differences: {coverage_differences[0]['Comparison']} {coverage_differences[0]['Impact']} "
-        f"Common Topics: {', '.join(topic_overlap['Common Topics'])}. "
-        f"Unique Topics: {', '.join([f'Article {i+1}: {topics}' for i, topics in enumerate(topic_overlap['Unique Topics'])})}. "
-        f"Final Sentiment Analysis: {final_sentiment_analysis}"
-    )
-
-    # Translate the summary text into Hindi
-    translated_text = GoogleTranslator(source="auto", target="hi").translate(summary_text)
+# Generate a detailed summary text that includes sentiment distribution, key insights, and final sentiment analysis.
+def generate_detailed_summary(comparative_analysis, overall_sentiment):
+    """
+    Combine sentiment distribution, key insights, and final sentiment analysis
+    into a single detailed summary text.
+    """
+    summary_lines = []
     
-   
-    full_text =translated_text  
+    # Sentiment Distribution
+    summary_lines.append("Sentiment Distribution:")
+    for sentiment, count in comparative_analysis.get("Sentiment Distribution", {}).items():
+        summary_lines.append(f"{sentiment}: {count} articles.")
+    
+    # Key Insights from Comparative Analysis (e.g., coverage differences)
+    summary_lines.append("\nKey Insights:")
+    for idx, diff in enumerate(comparative_analysis.get("Coverage Differences", []), 1):
+        summary_lines.append(f"Comparison {idx}: {diff.get('Comparison')}")
+        summary_lines.append(f"Impact {idx}: {diff.get('Impact')}")
+    
+    # Final Sentiment Analysis
+    summary_lines.append("\nFinal Sentiment Analysis:")
+    summary_lines.append(overall_sentiment)
+    
+    # Combine all lines into one text block
+    detailed_summary = "\n".join(summary_lines)
+    return detailed_summary
 
-    # Initialize the TTS model
-    tts = TTS(model_name="tts_models/hin/cmu_indic_tts", progress_bar=False, gpu=False)
-
-    # Generate speech
-    tts.tts_to_file(text=full_text, file_path=audio_filename)
-
+# Generate Hindi text-to-speech audio dynamically using Coqui TTS.
+def generate_audio_summary_coqui(comparative_analysis, overall_sentiment, company_name):
+    """
+    Creates a comprehensive audio summary that includes:
+    - Sentiment Distribution: Count of positive, negative, and neutral articles.
+    - Key Insights: Comparative analysis details such as coverage differences.
+    - Final Sentiment Analysis: Overall sentiment conclusion.
+    The summary is translated into Hindi and then converted to speech using Coqui TTS.
+    """
+    # Generate the detailed summary text
+    detailed_summary = generate_detailed_summary(comparative_analysis, overall_sentiment)
+    
+    # Translate the summary into Hindi
+    translated_summary = GoogleTranslator(source="auto", target="hi").translate(detailed_summary)
+    
+    # Initialize Coqui TTS with a Hindi-supported model.
+    # Replace "tts_models/hi/vits" with the actual model identifier available from Coqui TTS if necessary.
+    tts_model = TTS(model_name="tts_models/hi/vits", progress_bar=False, gpu=False)
+    
+    # Define the output audio file path (using .wav format for Coqui TTS)
+    audio_filename = f"static/{company_name}_summary_audio.wav"
+    
+    # Generate the speech audio and save to file
+    tts_model.tts_to_file(translated_summary, file_path=audio_filename)
+    
     return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.wav"
