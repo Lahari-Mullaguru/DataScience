@@ -9,6 +9,9 @@ from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
 import pyttsx3
 
+# For converting WAV to MP3
+from pydub import AudioSegment
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -87,12 +90,15 @@ def generate_comparative_analysis(articles):
     
     # Extract common and unique topics
     all_topics = [set(article["topics"]) for article in articles]
-    common_topics = list(set.intersection(*all_topics))
+    common_topics = list(set.intersection(*all_topics)) if all_topics else []
     
     # Calculate unique topics for each article
     unique_topics = {}
     for i, article in enumerate(articles):
-        other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
+        if len(all_topics) > 1:
+            other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
+        else:
+            other_topics = set()
         unique_topics[f"Unique Topics in Article {i+1}"] = list(set(article["topics"]) - other_topics)
     
     # Dynamically generate coverage differences
@@ -110,18 +116,16 @@ def generate_comparative_analysis(articles):
         # Generate impact based on sentiment
         if article1["sentiment"] == "Positive" and article2["sentiment"] == "Negative":
             impact = (
-                f"The first article highlights positive developments, boosting confidence in the company's growth, "
-                f"while the second article raises concerns about potential challenges."
+                "The first article highlights positive developments, boosting confidence in the company's growth, "
+                "while the second article raises concerns about potential challenges."
             )
         elif article1["sentiment"] == "Negative" and article2["sentiment"] == "Positive":
             impact = (
-                f"The first article raises concerns about challenges, while the second article highlights positive developments, "
-                f"boosting confidence in the company's growth."
+                "The first article raises concerns about challenges, while the second article highlights positive developments, "
+                "boosting confidence in the company's growth."
             )
         else:
-            impact = (
-                f"Both articles provide a balanced perspective on the company's current situation."
-            )
+            impact = "Both articles provide a balanced perspective on the company's current situation."
         
         coverage_differences.append({
             "Comparison": comparison,
@@ -133,47 +137,60 @@ def generate_comparative_analysis(articles):
         "Coverage Differences": coverage_differences,
         "Topic Overlap": {
             "Common Topics": common_topics,
-            **unique_topics  # Add unique topics for each article
+            **unique_topics  # Merge unique topics for each article
         }
     }
     
     return comparative_analysis
 
-# Function to generate Hindi text-to-speech audio using pyttsx3
+# Function to generate Hindi text-to-speech audio using pyttsx3 and convert it to MP3
 def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
-    audio_filename = f"static/{company_name}_summary_audio.wav"
+    # Generate a WAV filename
+    wav_filename = f"static/{company_name}_summary_audio.wav"
+    mp3_filename = f"static/{company_name}_summary_audio.mp3"
 
-    # Generate the summary text in English
+    # Extract components for the summary text
     sentiment_distribution = comparative_analysis["Sentiment Distribution"]
     coverage_differences = comparative_analysis["Coverage Differences"]
     topic_overlap = comparative_analysis["Topic Overlap"]
+
+    # Gather unique topics from keys that start with "Unique Topics"
+    unique_topics_list = []
+    for key, value in topic_overlap.items():
+        if key.startswith("Unique Topics"):
+            unique_topics_list.append(f"{key}: {', '.join(value)}")
+    unique_topics_str = "; ".join(unique_topics_list) if unique_topics_list else "None"
 
     summary_text = (
         f"Sentiment Distribution: {sentiment_distribution['Positive']} positive, "
         f"{sentiment_distribution['Negative']} negative, and {sentiment_distribution['Neutral']} neutral articles. "
         f"Coverage Differences: {coverage_differences[0]['Comparison']} {coverage_differences[0]['Impact']} "
-        f"Common Topics: {', '.join(topic_overlap['Common Topics'])}. "
-        f"Unique Topics: {', '.join([f'Article {i+1}: {topics}' for i, topics in enumerate(topic_overlap['Unique Topics'])])}. "
+        f"Common Topics: {', '.join(topic_overlap.get('Common Topics', []))}. "
+        f"Unique Topics: {unique_topics_str}. "
         f"Final Sentiment Analysis: {final_sentiment_analysis}"
     )
 
     # Translate the summary text into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(summary_text)
-     
-    full_text = translated_text  
+    full_text = translated_text  # You may prepend any additional intro if desired
 
     # Initialize the TTS engine
     engine = pyttsx3.init()
 
-    # Set Hindi voice (if available)
+    # Set Hindi voice if available
     voices = engine.getProperty("voices")
     for voice in voices:
         if "hindi" in voice.name.lower():
             engine.setProperty("voice", voice.id)
             break
 
-    # Save speech to file
-    engine.save_to_file(full_text, audio_filename)
+    # Save the translated text to a WAV file
+    engine.save_to_file(full_text, wav_filename)
     engine.runAndWait()
 
-    return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.wav"
+    # Convert the WAV file to MP3 using pydub
+    sound = AudioSegment.from_wav(wav_filename)
+    sound.export(mp3_filename, format="mp3")
+    os.remove(wav_filename)  # Optionally remove the WAV file after conversion
+
+    return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.mp3"
