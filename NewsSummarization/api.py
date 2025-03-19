@@ -22,9 +22,11 @@ def analyze_news(company_name: str):
     # Generate comparative analysis
     comparative_analysis = generate_comparative_analysis(articles_with_sentiment)
     
-    # Generate Hindi TTS
+    # Generate final sentiment analysis
     final_sentiment_analysis = f"{company_name}'s latest news coverage is mostly {max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
-    audio_url = text_to_speech(final_sentiment_analysis, company_name)
+    
+    # Generate Hindi TTS
+    audio_url = text_to_speech(comparative_analysis, final_sentiment_analysis, company_name)
     
     # Prepare the final output
     output = {
@@ -48,5 +50,4 @@ def analyze_news(company_name: str):
     
     # Pretty-print the JSON output
     pretty_output = json.dumps(output, indent=4, ensure_ascii=False)
-    print(pretty_output)  # Debug statement
     return Response(content=pretty_output, media_type="application/json")
