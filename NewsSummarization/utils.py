@@ -35,8 +35,6 @@ def fetch_news(company_name):
     response = requests.get(API_ENDPOINT, params=params)
     if response.status_code == 200:
         articles = response.json().get("articles", [])
-        if len(articles) < 10:
-            print(f"Warning: Only {len(articles)} articles found.")
         return [{
             "title": article["title"],
             "summary": article["description"],
@@ -76,7 +74,7 @@ def extract_topics(content):
     topics = [word for word, _ in word_freq.most_common(3)]
     return topics
 
-# Generate comparative analysis based on sentiment and topics
+# Generate comparative analysis
 def generate_comparative_analysis(articles):
     sentiment_distribution = {
         "Positive": 0,
@@ -87,22 +85,14 @@ def generate_comparative_analysis(articles):
     for article in articles:
         sentiment_distribution[article["sentiment"]] += 1
     
-    # Extract topics from all articles
+    # Extract common and unique topics
     all_topics = [set(article["topics"]) for article in articles]
-    
-    # Calculate common topics (topics that appear in at least 2 articles)
-    topic_counter = Counter()
-    for topics in all_topics:
-        topic_counter.update(topics)
-    common_topics = [topic for topic, count in topic_counter.items() if count >= 2]
+    common_topics = list(set.intersection(*all_topics))
     
     # Calculate unique topics for each article
     unique_topics = {}
     for i, article in enumerate(articles):
-        if len(all_topics) > 1:
-            other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
-        else:
-            other_topics = set()
+        other_topics = set.union(*[topics for j, topics in enumerate(all_topics) if j != i])
         unique_topics[f"Unique Topics in Article {i+1}"] = list(set(article["topics"]) - other_topics)
     
     # Dynamically generate coverage differences
@@ -120,16 +110,18 @@ def generate_comparative_analysis(articles):
         # Generate impact based on sentiment
         if article1["sentiment"] == "Positive" and article2["sentiment"] == "Negative":
             impact = (
-                "The first article highlights positive developments, boosting confidence in the company's growth, "
-                "while the second article raises concerns about potential challenges."
+                f"The first article highlights positive developments, boosting confidence in the company's growth, "
+                f"while the second article raises concerns about potential challenges."
             )
         elif article1["sentiment"] == "Negative" and article2["sentiment"] == "Positive":
             impact = (
-                "The first article raises concerns about challenges, while the second article highlights positive developments, "
-                "boosting confidence in the company's growth."
+                f"The first article raises concerns about challenges, while the second article highlights positive developments, "
+                f"boosting confidence in the company's growth."
             )
         else:
-            impact = "Both articles provide a balanced perspective on the company's current situation."
+            impact = (
+                f"Both articles provide a balanced perspective on the company's current situation."
+            )
         
         coverage_differences.append({
             "Comparison": comparison,
@@ -147,60 +139,41 @@ def generate_comparative_analysis(articles):
     
     return comparative_analysis
 
-# Generate a detailed summary text that includes sentiment distribution, key insights, and final sentiment analysis.
-def generate_detailed_summary(comparative_analysis, overall_sentiment):
-    """
-    Combine sentiment distribution, key insights, and final sentiment analysis
-    into a single detailed summary text.
-    """
-    summary_lines = []
-    
-    # Sentiment Distribution
-    summary_lines.append("Sentiment Distribution:")
-    for sentiment, count in comparative_analysis.get("Sentiment Distribution", {}).items():
-        summary_lines.append(f"{sentiment}: {count} articles.")
-    
-    # Key Insights from Comparative Analysis (e.g., coverage differences)
-    summary_lines.append("\nKey Insights:")
-    for idx, diff in enumerate(comparative_analysis.get("Coverage Differences", []), 1):
-        summary_lines.append(f"Comparison {idx}: {diff.get('Comparison')}")
-        summary_lines.append(f"Impact {idx}: {diff.get('Impact')}")
-    
-    # Final Sentiment Analysis
-    summary_lines.append("\nFinal Sentiment Analysis:")
-    summary_lines.append(overall_sentiment)
-    
-    # Combine all lines into one text block
-    detailed_summary = "\n".join(summary_lines)
-    return detailed_summary
-
-# Generate Hindi text-to-speech audio dynamically using pyttsx3.
-def generate_audio_summary_pyttsx3(comparative_analysis, overall_sentiment, company_name):
-    """
-    Creates a comprehensive audio summary that includes:
-    - Sentiment Distribution: Count of positive, negative, and neutral articles.
-    - Key Insights: Comparative analysis details such as coverage differences.
-    - Final Sentiment Analysis: Overall sentiment conclusion.
-    The summary is translated into Hindi and then converted to speech using pyttsx3.
-    """
-    # Generate the detailed summary text
-    detailed_summary = generate_detailed_summary(comparative_analysis, overall_sentiment)
-    
-    # Translate the summary into Hindi
-    translated_summary = GoogleTranslator(source="auto", target="hi").translate(detailed_summary)
-    
-    # Initialize pyttsx3 TTS engine
-    engine = pyttsx3.init()
-    
-    # Optionally, adjust properties such as speech rate or volume here:
-    # engine.setProperty('rate', 150)
-    # engine.setProperty('volume', 1.0)
-    
-    # Define the output audio file path (using .wav format)
+# Function to generate Hindi text-to-speech audio using pyttsx3
+def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
     audio_filename = f"static/{company_name}_summary_audio.wav"
-    
-    # Save the translated text to an audio file
-    engine.save_to_file(translated_summary, audio_filename)
+
+    # Generate the summary text in English
+    sentiment_distribution = comparative_analysis["Sentiment Distribution"]
+    coverage_differences = comparative_analysis["Coverage Differences"]
+    topic_overlap = comparative_analysis["Topic Overlap"]
+
+    summary_text = (
+        f"Sentiment Distribution: {sentiment_distribution['Positive']} positive, "
+        f"{sentiment_distribution['Negative']} negative, and {sentiment_distribution['Neutral']} neutral articles. "
+        f"Coverage Differences: {coverage_differences[0]['Comparison']} {coverage_differences[0]['Impact']} "
+        f"Common Topics: {', '.join(topic_overlap['Common Topics'])}. "
+        f"Unique Topics: {', '.join([f'Article {i+1}: {topics}' for i, topics in enumerate(topic_overlap['Unique Topics'])])}. "
+        f"Final Sentiment Analysis: {final_sentiment_analysis}"
+    )
+
+    # Translate the summary text into Hindi
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(summary_text)
+     
+    full_text = translated_text  
+
+    # Initialize the TTS engine
+    engine = pyttsx3.init()
+
+    # Set Hindi voice (if available)
+    voices = engine.getProperty("voices")
+    for voice in voices:
+        if "hindi" in voice.name.lower():
+            engine.setProperty("voice", voice.id)
+            break
+
+    # Save speech to file
+    engine.save_to_file(full_text, audio_filename)
     engine.runAndWait()
-    
+
     return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.wav"
