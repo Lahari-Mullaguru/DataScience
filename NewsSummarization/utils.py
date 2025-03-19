@@ -8,6 +8,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from dotenv import load_dotenv
 from deep_translator import GoogleTranslator
+from TTS.api import TTS
 
 # Load environment variables from .env file
 load_dotenv()
@@ -147,15 +148,33 @@ def generate_comparative_analysis(articles):
     return comparative_analysis
 
 # Function to generate Hindi text-to-speech audio dynamically
-def text_to_speech(text, company_name):
-    audio_filename = f"static/{company_name}_summary_audio.mp3"
+def text_to_speech(comparative_analysis, final_sentiment_analysis, company_name):
+    audio_filename = f"static/{company_name}_summary_audio.wav"
 
-    # Ensure summary is translated into Hindi
-    translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
+    # Generate the summary text in English
+    sentiment_distribution = comparative_analysis["Sentiment Distribution"]
+    coverage_differences = comparative_analysis["Coverage Differences"]
+    topic_overlap = comparative_analysis["Topic Overlap"]
+
+    summary_text = (
+        f"Sentiment Distribution: {sentiment_distribution['Positive']} positive, "
+        f"{sentiment_distribution['Negative']} negative, and {sentiment_distribution['Neutral']} neutral articles. "
+        f"Coverage Differences: {coverage_differences[0]['Comparison']} {coverage_differences[0]['Impact']} "
+        f"Common Topics: {', '.join(topic_overlap['Common Topics'])}. "
+        f"Unique Topics: {', '.join([f'Article {i+1}: {topics}' for i, topics in enumerate(topic_overlap['Unique Topics'])})}. "
+        f"Final Sentiment Analysis: {final_sentiment_analysis}"
+    )
+
+    # Translate the summary text into Hindi
+    translated_text = GoogleTranslator(source="auto", target="hi").translate(summary_text)
     
-    full_text = translated_text  
+   
+    full_text =translated_text  
 
-    tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
-    tts.save(audio_filename)
+    # Initialize the TTS model
+    tts = TTS(model_name="tts_models/hin/cmu_indic_tts", progress_bar=False, gpu=False)
 
-    return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.mp3"
+    # Generate speech
+    tts.tts_to_file(text=full_text, file_path=audio_filename)
+
+    return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.wav"
