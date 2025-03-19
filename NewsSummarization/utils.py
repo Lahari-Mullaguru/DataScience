@@ -17,7 +17,7 @@ API_KEY = os.getenv("NEWSAPI_API_KEY")
 if not API_KEY:
     raise ValueError("API key not found. Please set the NEWSAPI_API_KEY environment variable.")
 
-# Download NLTK data (only once)
+# Download NLTK data
 nltk.download("punkt")
 nltk.download("stopwords")
 
