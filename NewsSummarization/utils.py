@@ -35,6 +35,8 @@ def fetch_news(company_name):
     response = requests.get(API_ENDPOINT, params=params)
     if response.status_code == 200:
         articles = response.json().get("articles", [])
+        if len(articles) < 10:
+            print(f"Warning: Only {len(articles)} articles found.")
         return [{
             "title": article["title"],
             "summary": article["description"],
@@ -85,9 +87,14 @@ def generate_comparative_analysis(articles):
     for article in articles:
         sentiment_distribution[article["sentiment"]] += 1
     
-    # Extract common and unique topics
+    # Extract topics from all articles
     all_topics = [set(article["topics"]) for article in articles]
-    common_topics = list(set.intersection(*all_topics))
+    
+    # Calculate common topics (topics that appear in at least 2 articles)
+    topic_counter = Counter()
+    for topics in all_topics:
+        topic_counter.update(topics)
+    common_topics = [topic for topic, count in topic_counter.items() if count >= 2]
     
     # Calculate unique topics for each article
     unique_topics = {}
@@ -146,10 +153,9 @@ def text_to_speech(text, company_name):
     # Ensure summary is translated into Hindi
     translated_text = GoogleTranslator(source="auto", target="hi").translate(text)
     
-    hindi_intro = "यह हिंदी में अनुवादित समाचार है।"  
-    full_text = hindi_intro + " " + translated_text  
+    full_text = translated_text  
 
     tts = gTTS(full_text, lang="hi", slow=False, tld="co.in")  
     tts.save(audio_filename)
 
-    return audio_filename
+    return f"http://127.0.0.1:8000/static/{company_name}_summary_audio.mp3"
