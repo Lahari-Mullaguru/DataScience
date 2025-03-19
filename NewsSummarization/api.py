@@ -22,7 +22,7 @@ def analyze_news(company_name: str):
     # Generate comparative analysis
     comparative_analysis = generate_comparative_analysis(articles_with_sentiment)
     
-    # Generate final sentiment analysis (e.g., based on the most frequent sentiment)
+    # Generate final sentiment analysis (based on the most frequent sentiment)
     final_sentiment_analysis = (
         f"{company_name}'s latest news coverage is mostly "
         f"{max(comparative_analysis['Sentiment Distribution'], key=comparative_analysis['Sentiment Distribution'].get)}."
