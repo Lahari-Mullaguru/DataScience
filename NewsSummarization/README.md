@@ -17,15 +17,19 @@ This application extracts news articles related to a given company, performs sen
    git clone https://github.com/Lahari-Mullaguru/DataScience.git
    cd DataScience/NewsSummarization
 2. **Install Dependencies**:
+   ```bash
    pip install -r requirements.txt
-3. **Set up environment variables**:
+4. **Set up environment variables**:
    Create a .env file in the root directory.
    Add your NewsAPI key:
+   ```bash
    NEWSAPI_API_KEY=your_api_key_here
-4. **Run the FastAPI backend**:
+6. **Run the FastAPI backend**:
+   ```bash
    python -m uvicorn api:app --reload
-5. **Run the Streamlit frontend**:
+8. **Run the Streamlit frontend**:
+   ```bash
    streamlit run app.py
-6. **Access the application**:
+10. **Access the application**:
    Open your browser and go to http://localhost:8501.
    Enter a company name and click "Analyze News"
