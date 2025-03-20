@@ -21,18 +21,25 @@ This application extracts news articles related to a given company, performs sen
    pip install -r requirements.txt
 3. **Set up environment variables**:
    Create a .env file in the root directory.
+   I already have the .env file in my repository with my API key, you can test it further using any other key.
    Add your NewsAPI key:
    ```bash
    NEWSAPI_API_KEY=your_api_key_here
-4. **Run the FastAPI backend**:
+5. **Run the FastAPI backend**:
    ```bash
    python -m uvicorn api:app --reload
-5. Open the other terminal and enter the curl command
+6. **Request via curl command**:
+   Open the other terminal and enter the curl command
    ```bash
    curl -X GET "http://127.0.0.1:8000/analyze-news?company_name=Tesla"
-6. **Run the Streamlit frontend**:
+7. **Request via Postman**:
+   - Create a new request, Click on New HTTP Request.
+   - Set up the request: Request Method: Select GET.
+   ```bash
+   http://127.0.0.1:8000/analyze-news?company_name=Tesla
+8. **Run the Streamlit frontend**:
    ```bash
    python -m streamlit run app.py
-7. **Access the application**:
+9. **Access the application**:
    Open your browser and go to http://localhost:8501.
    Enter a company name and click "Analyze News"
