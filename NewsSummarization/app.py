@@ -31,6 +31,7 @@ if st.button("Analyze News"):
                         st.write(f"**Topics:** {', '.join(article['Topics'])}")
 
                 # Display Sentiment Distribution
+                st.write("### Comparative Sentiment Score")
                 st.write("### Sentiment Distribution")
                 sentiment_distribution = result["Comparative Sentiment Score"]["Sentiment Distribution"]
                 st.write(f"Positive: {sentiment_distribution['Positive']}")
