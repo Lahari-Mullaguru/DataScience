@@ -1,35 +1,41 @@
-# Conversation flow prompts
+# Conversation Flow
 INITIAL_GREETING = """
 Hello! I'm TalentBot, your AI hiring assistant. 
-I'll help with your initial screening process.
+I'll guide you through our initial screening process.
 
-May I have your full name please?
+May I have your **full name** please?
 """
 
-TECH_STACK_PROMPT = """
-Great! Now, please list your tech stack (e.g., Python, JavaScript, React).
+INFO_COLLECTION_PROMPTS = {
+    "email": "Thanks! What's your **email address**?",
+    "phone": "Got it! What's your **phone number**?",
+    "experience": "Great! How many **years of experience** do you have?",
+    "position": "What **position(s)** are you applying for?",
+    "location": "What's your **current location**?",
+    "tech_stack": """
+    Please list your **tech stack** (e.g., Python, JavaScript, React).
+    Separate technologies with commas.
+    """
+}
 
-You can separate technologies with commas.
+TECH_QUESTION_PROMPT = """
+Generate 3-5 technical questions about {tech} for a candidate with {experience} years of experience.
+Format as a Markdown list with:
+- Clear numbering
+- **Bold** for key concepts
+- 1 practical coding question
+- 1 architecture/design question
 """
 
 CLOSING_MESSAGE = """
-Screening Complete!
+🎉 **Screening Complete!**
 
-Thank you for your time! A recruiter will review your responses 
-and contact you soon.
+Thank you! A recruiter will review your responses and contact you shortly.
 
-Have a great day!
+Have a great day! 👋
 """
 
-# Question generation prompt
-TECH_QUESTION_PROMPT = """
-Generate 3-5 technical interview questions about {tech} 
-suitable for a candidate with {experience} years of experience.
-
-Focus on:
-- Core concepts (20%)
-- Practical applications (40%)
-- Problem-solving scenarios (40%)
-
-Format as a numbered list.
+FALLBACK_RESPONSE = """
+I didn't quite understand that. Could you rephrase?
+(To exit, type 'quit')
 """
