@@ -1,4 +1,6 @@
 import streamlit as st
+from typing import Dict, Any
+
 from utils.data_handler import (
     validate_email,
     validate_phone,
@@ -11,22 +13,18 @@ from prompts import (
     CLOSING_MESSAGE
 )
 
-# Initialize session state
+# session state initialization
 def init_session_state():
     if "messages" not in st.session_state:
         st.session_state.messages = []
         st.session_state.candidate_info = {
-            "name": None,
-            "email": None,
-            "phone": None,
-            "experience": None,
-            "position": None,
-            "location": None,
-            "tech_stack": [],
-            "tech_questions": {}
+            "name": None, "email": None, "phone": None,
+            "experience": None, "position": None, 
+            "location": None, "tech_stack": []
         }
         st.session_state.conversation_stage = "greeting"
-
+        st.session_state.awaiting_confirmation = None  # Track pending confirmations
+       
 # UI Configuration
 def setup_ui():
     st.set_page_config(
