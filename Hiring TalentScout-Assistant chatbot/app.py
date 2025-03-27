@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.data_handler import *
+from utils.sentiment_analyzer import sentiment_analyzer
 from utils.question_generator import generate_tech_questions
 from prompts import *
 
@@ -66,6 +67,13 @@ def handle_user_input(user_input: str):
         return next_stage[2]  # Next prompt
     else:
         return generate_tech_questions_flow()
+    # Sentiment analysis
+    if len(st.session_state.messages) > 3:  # Only analyze after some conversation
+        sentiment = sentiment_analyzer.analyze_conversation(st.session_state.messages)
+        if sentiment and sentiment["warning"]:
+            response = f"{response}\n\n⚠️ I notice you might be frustrated. Would you like to take a break?"
+    
+    return response
 
 def generate_tech_questions_flow():
     tech_stack = st.session_state.candidate_info["tech_stack"]
