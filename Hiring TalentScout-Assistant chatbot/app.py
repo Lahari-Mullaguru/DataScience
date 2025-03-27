@@ -1,16 +1,43 @@
 import streamlit as st
-import re  # For input validation
+import re
+import openai
+from dotenv import load_dotenv
+import os
+
+# Load OpenAI API key
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 def validate_email(email):
     """Basic email validation"""
     return re.match(r"[^@]+@[^@]+\.[^@]+", email)
 
 def validate_phone(phone):
-    """Basic phone number validation (digits only, min 10 chars)"""
+    """Basic phone validation (digits only, min 10 chars)"""
     return phone.isdigit() and len(phone) >= 10
 
+def generate_tech_questions(tech, experience):
+    """Generate technical questions using OpenAI"""
+    prompt = f"""
+    Generate 3-5 technical interview questions about {tech} suitable for a candidate with {experience} years of experience.
+    Questions should cover:
+    - Core concepts
+    - Practical scenarios
+    - Best practices
+    Format as a numbered list.
+    """
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"⚠️ Could not generate questions. Error: {str(e)}"
+
 def main():
-    # Page configuration (same as before)
+    # Page config (same as before)
     st.set_page_config(
         page_title="TalentScout Hiring Assistant",
         page_icon="💼",
@@ -36,7 +63,8 @@ def main():
             "experience": None,
             "position": None,
             "location": None,
-            "tech_stack": []
+            "tech_stack": [],
+            "tech_questions": {}
         }
         st.session_state.conversation_stage = "greeting"
     
@@ -118,7 +146,53 @@ def main():
             )
             st.session_state.conversation_stage = "collecting_tech_stack"
         
-        # --- (Next step: Tech stack collection) ---
+        # --- COLLECTING TECH STACK ---
+        elif st.session_state.conversation_stage == "collecting_tech_stack":
+            tech_list = [tech.strip() for tech in re.split(r"[,/]", user_input) if tech.strip()]
+            if tech_list:
+                st.session_state.candidate_info["tech_stack"] = tech_list
+                response = (
+                    f"✅ Saved your tech stack: {', '.join(tech_list)}\n\n"
+                    "I'll now generate some technical questions for you..."
+                )
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+                
+                # Generate questions for each technology
+                for tech in tech_list:
+                    questions = generate_tech_questions(tech, st.session_state.candidate_info["experience"])
+                    st.session_state.candidate_info["tech_questions"][tech] = questions
+                    
+                    q_response = (
+                        f"📌 **{tech} Questions:**\n\n"
+                        f"{questions}\n\n"
+                        "Take your time to answer!"
+                    )
+                    st.session_state.messages.append({"role": "assistant", "content": q_response})
+                    with st.chat_message("assistant"):
+                        st.markdown(q_response)
+                
+                # End conversation
+                closing_message = (
+                    "🎉 **Screening Complete!**\n\n"
+                    "Thank you for your time! A recruiter will review your responses "
+                    "and contact you soon.\n\n"
+                    "Have a great day! 👋"
+                )
+                st.session_state.messages.append({"role": "assistant", "content": closing_message})
+                with st.chat_message("assistant"):
+                    st.markdown(closing_message)
+                
+                st.session_state.conversation_stage = "completed"
+                return  # Prevent further input
+            
+            else:
+                response = "❌ Please enter at least one technology (e.g., Python, JavaScript)."
+        
+        # --- CONVERSATION COMPLETED ---
+        elif st.session_state.conversation_stage == "completed":
+            response = "This conversation has ended. Refresh the page to start a new screening."
         
         # Add assistant response to chat
         st.session_state.messages.append({"role": "assistant", "content": response})
