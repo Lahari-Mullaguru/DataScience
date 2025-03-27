@@ -1,14 +1,23 @@
 import streamlit as st
+import re  # For input validation
+
+def validate_email(email):
+    """Basic email validation"""
+    return re.match(r"[^@]+@[^@]+\.[^@]+", email)
+
+def validate_phone(phone):
+    """Basic phone number validation (digits only, min 10 chars)"""
+    return phone.isdigit() and len(phone) >= 10
 
 def main():
-    # Configure page
+    # Page configuration (same as before)
     st.set_page_config(
         page_title="TalentScout Hiring Assistant",
         page_icon="💼",
         layout="centered"
     )
     
-    # Custom CSS for better appearance
+    # Custom CSS (same as before)
     st.markdown("""
     <style>
         .stChatInput {position: fixed; bottom: 2rem;}
@@ -17,7 +26,7 @@ def main():
     </style>
     """, unsafe_allow_html=True)
     
-    # Initialize session state
+    # Initialize session state (expanded)
     if "messages" not in st.session_state:
         st.session_state.messages = []
         st.session_state.candidate_info = {
@@ -40,12 +49,12 @@ def main():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
     
-    # Initial greeting if no messages yet
+    # Initial greeting (only on first load)
     if len(st.session_state.messages) == 0:
         initial_greeting = (
             "Hello! I'm TalentBot, your AI hiring assistant. "
             "I'll help with your initial screening process.\n\n"
-            "May I have your full name please?"
+            "May I have your **full name** please?"
         )
         st.session_state.messages.append({"role": "assistant", "content": initial_greeting})
         with st.chat_message("assistant"):
@@ -58,11 +67,58 @@ def main():
         with st.chat_message("user"):
             st.markdown(user_input)
         
-        # Simple response for now (will enhance in next steps)
+        # Determine response based on conversation stage
+        response = ""
+        
+        # --- GREETING: Collecting name ---
         if st.session_state.conversation_stage == "greeting":
-            response = f"Thank you, {user_input}. Could you please share your email address?"
             st.session_state.candidate_info["name"] = user_input
+            response = f"Thanks, {user_input}! What's your **email address**?"
             st.session_state.conversation_stage = "collecting_email"
+        
+        # --- COLLECTING EMAIL ---
+        elif st.session_state.conversation_stage == "collecting_email":
+            if validate_email(user_input):
+                st.session_state.candidate_info["email"] = user_input
+                response = "Got it! What's your **phone number**?"
+                st.session_state.conversation_stage = "collecting_phone"
+            else:
+                response = "❌ Please enter a valid email (e.g., name@example.com)."
+        
+        # --- COLLECTING PHONE ---
+        elif st.session_state.conversation_stage == "collecting_phone":
+            if validate_phone(user_input):
+                st.session_state.candidate_info["phone"] = user_input
+                response = "Great! How many **years of experience** do you have?"
+                st.session_state.conversation_stage = "collecting_experience"
+            else:
+                response = "❌ Please enter a valid phone number (digits only, at least 10 characters)."
+        
+        # --- COLLECTING EXPERIENCE ---
+        elif st.session_state.conversation_stage == "collecting_experience":
+            if user_input.isdigit():
+                st.session_state.candidate_info["experience"] = user_input
+                response = "Got it! What **position(s)** are you applying for?"
+                st.session_state.conversation_stage = "collecting_position"
+            else:
+                response = "❌ Please enter a valid number (e.g., 3)."
+        
+        # --- COLLECTING POSITION ---
+        elif st.session_state.conversation_stage == "collecting_position":
+            st.session_state.candidate_info["position"] = user_input
+            response = "Thanks! What's your **current location**?"
+            st.session_state.conversation_stage = "collecting_location"
+        
+        # --- COLLECTING LOCATION ---
+        elif st.session_state.conversation_stage == "collecting_location":
+            st.session_state.candidate_info["location"] = user_input
+            response = (
+                "Great! Now, please list your **tech stack** (e.g., Python, JavaScript, React).\n\n"
+                "You can separate technologies with commas."
+            )
+            st.session_state.conversation_stage = "collecting_tech_stack"
+        
+        # --- (Next step: Tech stack collection) ---
         
         # Add assistant response to chat
         st.session_state.messages.append({"role": "assistant", "content": response})
