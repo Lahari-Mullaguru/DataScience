@@ -1,41 +1,24 @@
-# Conversation Flow
-INITIAL_GREETING = """
-Hello! I'm TalentBot, your AI hiring assistant. 
-I'll guide you through our initial screening process.
+def greeting_prompt():
+    return "Hello! I'm TalentScout, your virtual hiring assistant. I'll help gather your details and assess your technical strengths. Let's begin!"
 
-May I have your **full name** please?
-"""
+def candidate_info_prompt(name, experience, role, location):
+    return (
+        f"Candidate Name: {name}\n"
+        f"Experience: {experience} years\n"
+        f"Desired Role: {role}\n"
+        f"Current Location: {location}\n\n"
+        f"Please confirm that this information is correct."
+    )
 
-INFO_COLLECTION_PROMPTS = {
-    "email": "Thanks! What's your **email address**?",
-    "phone": "Got it! What's your **phone number**?",
-    "experience": "Great! How many **years of experience** do you have?",
-    "position": "What **position(s)** are you applying for?",
-    "location": "What's your **current location**?",
-    "tech_stack": """
-    Please list your **tech stack** (e.g., Python, JavaScript, React).
-    Separate technologies with commas.
-    """
-}
+def tech_question_prompt(tech_stack):
+    return (
+        f"You are a technical interviewer. Generate 3 to 5 challenging and relevant interview questions "
+        f"for the following technologies: {tech_stack}. Make sure the questions test both theoretical knowledge "
+        f"and practical experience."
+    )
 
-TECH_QUESTION_PROMPT = """
-Generate 3-5 technical questions about {tech} for a candidate with {experience} years of experience.
-Format as a Markdown list with:
-- Clear numbering
-- **Bold** for key concepts
-- 1 practical coding question
-- 1 architecture/design question
-"""
+def fallback_prompt():
+    return "I'm sorry, I didn't understand that. Could you please rephrase or clarify?"
 
-CLOSING_MESSAGE = """
-🎉 **Screening Complete!**
-
-Thank you! A recruiter will review your responses and contact you shortly.
-
-Have a great day! 👋
-"""
-
-FALLBACK_RESPONSE = """
-I didn't quite understand that. Could you rephrase?
-(To exit, type 'quit')
-"""
+def goodbye_prompt():
+    return "Thank you for your time! We'll review your responses and reach out with next steps. Have a great day!"
