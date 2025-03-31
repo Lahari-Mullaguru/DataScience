@@ -1,116 +1,94 @@
 import streamlit as st
-from utils.data_handler import *
-from utils.sentiment_analyzer import sentiment_analyzer
-from utils.question_generator import generate_tech_questions
-from prompts import *
+import google.generativeai as genai
+from prompts import (
+    greeting_prompt,
+    candidate_info_prompt,
+    tech_question_prompt,
+    fallback_prompt,
+    goodbye_prompt,
+)
+from utils import (
+    validate_email,
+    validate_phone,
+    anonymize_data,
+    generate_session_id,
+    is_exit_command,
+)
+import os
+from dotenv import load_dotenv
 
-# --- Session State Initialization ---
-def init_session_state():
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-        st.session_state.candidate_info = {
-            "name": None, "email": None, "phone": None,
-            "experience": None, "position": None,
-            "location": None, "tech_stack": []
-        }
-        st.session_state.conversation_flow = [
-            ("greeting", "name", INITIAL_GREETING),
-            ("collecting_email", "email", INFO_COLLECTION_PROMPTS["email"]),
-            ("collecting_phone", "phone", INFO_COLLECTION_PROMPTS["phone"]),
-            ("collecting_experience", "experience", INFO_COLLECTION_PROMPTS["experience"]),
-            ("collecting_position", "position", INFO_COLLECTION_PROMPTS["position"]),
-            ("collecting_location", "location", INFO_COLLECTION_PROMPTS["location"]),
-            ("collecting_tech_stack", "tech_stack", INFO_COLLECTION_PROMPTS["tech_stack"])
-        ]
-        st.session_state.current_stage = 0
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+model = genai.GenerativeModel("gemini-pro")
 
-# --- UI Setup ---
-def setup_ui():
-    st.set_page_config(
-        page_title="TalentScout Hiring Assistant",
-        page_icon="💼",
-        layout="centered"
+st.set_page_config(page_title="TalentScout AI Hiring Assistant", layout="centered")
+
+if "history" not in st.session_state:
+    st.session_state.history = []
+    st.session_state.session_id = generate_session_id()
+
+st.title("TalentScout - AI Hiring Assistant")
+
+with st.expander("Data Privacy Notice"):
+    st.write(
+        "All information entered is simulated and anonymized for testing purposes only. "
+        "This app complies with GDPR data privacy practices by not storing any personal data persistently."
     )
-    st.title("💼 TalentScout Hiring Assistant")
-    st.caption("AI-Powered Candidate Screening")
 
-    # Custom CSS
-    st.markdown("""
-    <style>
-        .stChatInput {position: fixed; bottom: 2rem;}
-        .stChatMessage {width: 80%;}
-        .assistant-message {background-color: #f0f2f6; padding: 1rem; border-radius: 0.5rem;}
-    </style>
-    """, unsafe_allow_html=True)
+st.markdown("Welcome to TalentScout! Please fill out the details below to begin.")
 
-# --- Core Logic ---
-def handle_user_input(user_input: str):
-    stage_data = st.session_state.conversation_flow[st.session_state.current_stage]
-    stage_name, field, prompt = stage_data
-    candidate = st.session_state.candidate_info
+with st.form("candidate_form"):
+    full_name = st.text_input("Full Name")
+    email = st.text_input("Email Address")
+    phone = st.text_input("Phone Number")
+    experience = st.slider("Years of Experience", 0, 30, 1)
+    desired_role = st.text_input("Desired Position")
+    location = st.text_input("Current Location")
+    tech_stack = st.text_area("Tech Stack (comma-separated):", placeholder="e.g., Python, Django, React")
 
-    # Validate inputs
-    if stage_name == "collecting_email" and not validate_email(user_input):
-        return "❌ Invalid email. Please try again (e.g., name@example.com)."
-    elif stage_name == "collecting_phone" and not validate_phone(user_input):
-        return "❌ Phone must be 10+ digits (no symbols)."
-    elif stage_name == "collecting_experience" and not validate_experience(user_input):
-        return "❌ Please enter a valid number (0-50)."
+    submitted = st.form_submit_button("Submit")
 
-    # Store valid data
-    candidate[field] = user_input
-
-    # Move to next stage
-    if st.session_state.current_stage < len(st.session_state.conversation_flow) - 1:
-        st.session_state.current_stage += 1
-        next_stage = st.session_state.conversation_flow[st.session_state.current_stage]
-        return next_stage[2]  # Next prompt
+if submitted:
+    if not validate_email(email):
+        st.error("Please enter a valid email.")
+    elif not validate_phone(phone):
+        st.error("Please enter a valid phone number.")
     else:
-        return generate_tech_questions_flow()
-    # Sentiment analysis
-    if len(st.session_state.messages) > 3:  # Only analyze after some conversation
-        sentiment = sentiment_analyzer.analyze_conversation(st.session_state.messages)
-        if sentiment and sentiment["warning"]:
-            response = f"{response}\n\n⚠️ I notice you might be frustrated. Would you like to take a break?"
-    
-    return response
+        candidate_info = {
+            "name": full_name,
+            "email": email,
+            "phone": phone,
+            "experience": experience,
+            "role": desired_role,
+            "location": location,
+            "tech_stack": tech_stack,
+        }
 
-def generate_tech_questions_flow():
-    tech_stack = st.session_state.candidate_info["tech_stack"]
-    questions = []
-    for tech in parse_tech_stack(tech_stack):
-        q = generate_tech_questions(tech, st.session_state.candidate_info["experience"])
-        if q:
-            questions.append(f"**{tech} Questions:**\n\n{q}")
-    
-    return "\n\n".join(questions) + "\n\n" + CLOSING_MESSAGE
+        anonymized_info = anonymize_data(candidate_info)
 
-# --- Main Function ---
-def main():
-    setup_ui()
-    init_session_state()
+        st.session_state.history.append(f"🧑 Candidate: {full_name}")
+        st.success("Candidate information recorded successfully.")
 
-    # Display chat history
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        with st.spinner("Generating technical questions..."):
+            prompt = tech_question_prompt(tech_stack)
+            response = model.generate_content(prompt)
+            st.markdown("### 🧪 Technical Questions")
+            st.write(response.text)
+            st.session_state.history.append(f"🧪 Questions: {response.text}")
 
-    # Initial greeting
-    if len(st.session_state.messages) == 0:
-        st.session_state.messages.append({"role": "assistant", "content": INITIAL_GREETING})
-        with st.chat_message("assistant"):
-            st.markdown(INITIAL_GREETING)
+st.markdown("---")
+st.markdown("### 💬 Chat")
 
-    # User input handling
-    if user_input := st.chat_input("Your response..."):
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        with st.chat_message("user"):
-            st.markdown(user_input)
+user_input = st.text_input("Ask a follow-up question or type 'exit' to end the session:")
 
-        response = handle_user_input(user_input)
-        st.session_state.messages.append({"role": "assistant", "content": response})
-        with st.chat_message("assistant"):
-            st.markdown(response)
-
-if __name__ == "__main__":
-    main()
+if user_input:
+    if is_exit_command(user_input):
+        st.write(goodbye_prompt())
+    else:
+        try:
+            response = model.generate_content(user_input)
+            st.write(f"{response.text}")
+            st.session_state.history.append(f"{user_input}")
+            st.session_state.history.append(f"{response.text}")
+        except Exception:
+            st.write(fallback_prompt())
