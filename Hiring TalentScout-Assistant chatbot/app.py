@@ -1,94 +1,106 @@
+# app.py
 import streamlit as st
 import google.generativeai as genai
-from prompts import (
-    greeting_prompt,
-    candidate_info_prompt,
-    tech_question_prompt,
-    fallback_prompt,
-    goodbye_prompt,
-)
-from utils import (
-    validate_email,
-    validate_phone,
-    anonymize_data,
-    generate_session_id,
-    is_exit_command,
-)
-import os
 from dotenv import load_dotenv
+import os
+from prompts import INITIAL_GREETING, INFO_COLLECTION_PROMPTS, TECH_QUESTION_PROMPT, CLOSING_MESSAGE, FALLBACK_RESPONSE
+from utils import validate_email, validate_phone, is_exit_command
 
+# Load environment variables
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-model = genai.GenerativeModel("gemini-pro")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-st.set_page_config(page_title="TalentScout AI Hiring Assistant", layout="centered")
+# Configure the Google Generative AI model
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel(model_name="models/google-genai==1.7.0")
 
-if "history" not in st.session_state:
-    st.session_state.history = []
-    st.session_state.session_id = generate_session_id()
+# Initialize session state
+if "step" not in st.session_state:
+    st.session_state.step = "greeting"
+    st.session_state.candidate_data = {}
+    st.session_state.messages = []
 
-st.title("TalentScout - AI Hiring Assistant")
+st.title("TalentBot – AI Hiring Assistant")
 
-with st.expander("Data Privacy Notice"):
-    st.write(
-        "All information entered is simulated and anonymized for testing purposes only. "
-        "This app complies with GDPR data privacy practices by not storing any personal data persistently."
-    )
+# Display chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-st.markdown("Welcome to TalentScout! Please fill out the details below to begin.")
+# Bot replies in chat
+def bot_reply(text):
+    st.session_state.messages.append({"role": "assistant", "content": text})
+    with st.chat_message("assistant"):
+        st.markdown(text)
 
-with st.form("candidate_form"):
-    full_name = st.text_input("Full Name")
-    email = st.text_input("Email Address")
-    phone = st.text_input("Phone Number")
-    experience = st.slider("Years of Experience", 0, 30, 1)
-    desired_role = st.text_input("Desired Position")
-    location = st.text_input("Current Location")
-    tech_stack = st.text_area("Tech Stack (comma-separated):", placeholder="e.g., Python, Django, React")
+# Initial greeting
+if st.session_state.step == "greeting":
+    bot_reply(INITIAL_GREETING)
+    st.session_state.step = "full_name"
 
-    submitted = st.form_submit_button("Submit")
-
-if submitted:
-    if not validate_email(email):
-        st.error("Please enter a valid email.")
-    elif not validate_phone(phone):
-        st.error("Please enter a valid phone number.")
-    else:
-        candidate_info = {
-            "name": full_name,
-            "email": email,
-            "phone": phone,
-            "experience": experience,
-            "role": desired_role,
-            "location": location,
-            "tech_stack": tech_stack,
-        }
-
-        anonymized_info = anonymize_data(candidate_info)
-
-        st.session_state.history.append(f"🧑 Candidate: {full_name}")
-        st.success("Candidate information recorded successfully.")
-
-        with st.spinner("Generating technical questions..."):
-            prompt = tech_question_prompt(tech_stack)
-            response = model.generate_content(prompt)
-            st.markdown("### 🧪 Technical Questions")
-            st.write(response.text)
-            st.session_state.history.append(f"🧪 Questions: {response.text}")
-
-st.markdown("---")
-st.markdown("### 💬 Chat")
-
-user_input = st.text_input("Ask a follow-up question or type 'exit' to end the session:")
+# Input from user
+user_input = st.chat_input("Type your response...")
 
 if user_input:
+    st.session_state.messages.append({"role": "user", "content": user_input})
+
     if is_exit_command(user_input):
-        st.write(goodbye_prompt())
+        bot_reply(CLOSING_MESSAGE)
+        st.session_state.step = "done"
+
+    elif st.session_state.step == "full_name":
+        st.session_state.candidate_data["full_name"] = user_input
+        bot_reply(INFO_COLLECTION_PROMPTS["email"])
+        st.session_state.step = "email"
+
+    elif st.session_state.step == "email":
+        if validate_email(user_input):
+            st.session_state.candidate_data["email"] = user_input
+            bot_reply(INFO_COLLECTION_PROMPTS["phone"])
+            st.session_state.step = "phone"
+        else:
+            bot_reply("That doesn't look like a valid email. Try again:")
+
+    elif st.session_state.step == "phone":
+        if validate_phone(user_input):
+            st.session_state.candidate_data["phone"] = user_input
+            bot_reply(INFO_COLLECTION_PROMPTS["experience"])
+            st.session_state.step = "experience"
+        else:
+            bot_reply("That doesn't look like a valid phone number. Try again:")
+
+    elif st.session_state.step == "experience":
+        st.session_state.candidate_data["experience"] = user_input
+        bot_reply(INFO_COLLECTION_PROMPTS["position"])
+        st.session_state.step = "position"
+
+    elif st.session_state.step == "position":
+        st.session_state.candidate_data["position"] = user_input
+        bot_reply(INFO_COLLECTION_PROMPTS["location"])
+        st.session_state.step = "location"
+
+    elif st.session_state.step == "location":
+        st.session_state.candidate_data["location"] = user_input
+        bot_reply(INFO_COLLECTION_PROMPTS["tech_stack"])
+        st.session_state.step = "tech_stack"
+
+    elif st.session_state.step == "tech_stack":
+        st.session_state.candidate_data["tech_stack"] = user_input
+        tech = user_input
+        experience = st.session_state.candidate_data.get("experience", "2")
+
+        prompt = TECH_QUESTION_PROMPT.format(tech=tech, experience=experience)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Generating technical questions..."):
+                response = model.generate_content(prompt)
+                st.markdown(response.text)
+
+        st.session_state.step = "done"
+        bot_reply(CLOSING_MESSAGE)
+
+    elif st.session_state.step == "done":
+        bot_reply("Session ended. Refresh the page to start again.")
+
     else:
-        try:
-            response = model.generate_content(user_input)
-            st.write(f"{response.text}")
-            st.session_state.history.append(f"{user_input}")
-            st.session_state.history.append(f"{response.text}")
-        except Exception:
-            st.write(fallback_prompt())
+        bot_reply(FALLBACK_RESPONSE)
