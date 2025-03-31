@@ -2,13 +2,16 @@ import re
 import random
 import hashlib
 
-def validate_email(email):
-    pattern = r"[^@]+@[^@]+\.[^@]+"
-    return re.match(pattern, email)
+def validate_email(email: str) -> bool:
+    pattern = r"[^@]+@[^@]+\\.[^@]+"
+    return re.match(pattern, email) is not None
 
-def validate_phone(phone):
-    pattern = r"^\+?\d{10,15}$"
-    return re.match(pattern, phone)
+def validate_phone(phone: str) -> bool:
+    cleaned = re.sub(r"[^\\d]", "", phone)
+    return len(cleaned) >= 10
+
+
+
 
 def anonymize_data(data):
     """Simulates anonymization using hashing."""
